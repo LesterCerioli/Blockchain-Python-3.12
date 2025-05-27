@@ -26,7 +26,7 @@ class ERC20ContractGenerator(SmartContractGenerator):
         adjusted_initial_supply = initial_supply * (10**decimals)
 
         return f"""\
-// SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.0;
 
 contract {name} {{

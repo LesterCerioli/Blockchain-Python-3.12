@@ -7,7 +7,7 @@ from smart_contract_generator.app.token_services import format_token_transfer_da
 
 app = FastAPI()
 
-# Pydantic Models
+
 class ERC20Properties(BaseModel):
     name: str
     symbol: str
@@ -26,13 +26,13 @@ class TokenServiceResponse(BaseModel):
     data: Dict[str, Any]
 
 
-# Root endpoint
+
 @app.get("/")
 async def root():
     return {"message": "Smart Contract Generator API"}
 
 
-# ERC20 Contract Generation Endpoint
+
 @app.post("/generate/erc20/", response_model=ContractCodeResponse)
 async def generate_erc20_contract(properties: ERC20Properties):
     generator = ERC20ContractGenerator()
@@ -45,7 +45,7 @@ async def generate_erc20_contract(properties: ERC20Properties):
     return ContractCodeResponse(solidity_code=code)
 
 
-# Placeholder Service Endpoint (Contract Interaction Data)
+
 @app.post("/service/prepare-contract-interaction/", response_model=TokenServiceResponse)
 async def prepare_interaction_data(request: TokenServiceRequest):
     result = prepare_contract_interaction_data(
