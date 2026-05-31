@@ -1,3 +1,20 @@
-fastapi
-uvicorn[standard]
-web3
+# Core
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+
+# Blockchain
+web3>=6.18.0
+
+# HTTP client (async RPC + connection pooling)
+httpx>=0.27.0
+
+# Database
+sqlalchemy[asyncio]>=2.0.30
+asyncpg>=0.29.0
+
+# Testing
+pytest>=8.2.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0
