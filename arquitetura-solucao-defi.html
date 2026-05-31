@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arquitetura de Solução — Plataforma SaaS DeFi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAF8F3; --ink:#1C1B26; --ink2:#4A4856; --line:#E2DDD2; --line2:#CFC9BB;
+  --blue:#185FA5; --blue-bg:#E9F1FA; --blue-line:#9CC2E8;
+  --teal:#0F6E56; --teal-bg:#E2F2EC; --teal-line:#92CEB6;
+  --gray:#5F5E5A; --gray-bg:#F0EDE5; --gray-line:#CFC9BB;
+  --amber:#854F0B; --amber-bg:#FAF0DD; --amber-line:#E8C27E;
+  --accent:#0F6E56;
+}
+*{box-sizing:border-box;}
+html{-webkit-font-smoothing:antialiased;}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Public Sans",sans-serif; font-size:16px; line-height:1.72;
+}
+.wrap{max-width:820px; margin:0 auto; padding:72px 40px 96px;}
+.eyebrow{font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); margin:0 0 18px;}
+h1{font-family:"Fraunces",serif; font-weight:600; font-size:46px; line-height:1.08; letter-spacing:-.01em; margin:0 0 16px;}
+.lede{font-size:19px; line-height:1.6; color:var(--ink2); margin:0 0 28px; max-width:62ch;}
+.meta{display:flex; flex-wrap:wrap; gap:8px 24px; font-family:"IBM Plex Mono",monospace; font-size:12.5px; color:var(--ink2); border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:16px 0; margin:0 0 8px;}
+.meta b{color:var(--ink); font-weight:500;}
+h2{font-family:"Fraunces",serif; font-weight:600; font-size:28px; line-height:1.15; letter-spacing:-.01em; margin:64px 0 6px; padding-top:18px;}
+h2 .num{font-family:"IBM Plex Mono",monospace; font-size:14px; color:var(--accent); font-weight:500; vertical-align:6px; margin-right:12px;}
+h3{font-family:"Public Sans",sans-serif; font-weight:600; font-size:17px; margin:34px 0 4px; color:var(--ink);}
+p{margin:14px 0;}
+.section-rule{height:1px; background:var(--line); border:0; margin:0;}
+a{color:var(--accent);}
+strong{font-weight:600;}
+ul,ol{margin:14px 0; padding-left:22px;}
+li{margin:7px 0;}
+code{font-family:"IBM Plex Mono",monospace; font-size:13.5px; background:var(--gray-bg); padding:1.5px 6px; border-radius:4px; color:#3A3947;}
+
+.toc{background:#fff; border:1px solid var(--line); border-radius:14px; padding:22px 26px; margin:36px 0 8px;}
+.toc h4{font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink2); margin:0 0 12px;}
+.toc ol{margin:0; padding-left:0; list-style:none; counter-reset:t; columns:2; column-gap:36px;}
+.toc li{counter-increment:t; margin:5px 0; font-size:14.5px; break-inside:avoid;}
+.toc li::before{content:counter(t,decimal-leading-zero); font-family:"IBM Plex Mono",monospace; color:var(--accent); font-size:12px; margin-right:10px;}
+.toc a{text-decoration:none; color:var(--ink);}
+
+figure{margin:30px 0;}
+figure svg{display:block; width:100%; height:auto; background:#fff; border:1px solid var(--line); border-radius:14px; padding:14px;}
+figcaption{font-size:13px; color:var(--ink2); margin-top:10px; font-style:italic; text-align:center;}
+.svg-t{font-family:"Public Sans",sans-serif; font-size:14px; font-weight:600;}
+.svg-s{font-family:"Public Sans",sans-serif; font-size:12px;}
+.svg-lbl{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:500; letter-spacing:.02em;}
+
+table{width:100%; border-collapse:collapse; margin:22px 0; font-size:14.5px;}
+th,td{text-align:left; padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top;}
+th{font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink2); font-weight:500;}
+td .tag{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:11px; padding:2px 8px; border-radius:20px; font-weight:500; white-space:nowrap;}
+.tag.zero{background:var(--teal-bg); color:var(--teal);}
+.tag.cost{background:var(--amber-bg); color:var(--amber);}
+
+.callout{border-radius:14px; padding:22px 26px; margin:26px 0;}
+.callout h4{margin:0 0 8px; font-family:"Public Sans",sans-serif; font-size:15px; font-weight:600; display:flex; align-items:center; gap:9px;}
+.callout p{margin:8px 0 0;}
+.guard{background:#fff; border:1px solid var(--teal-line);}
+.guard h4{color:var(--teal);}
+.guard ol{counter-reset:g; list-style:none; padding-left:0; margin:14px 0 0;}
+.guard li{counter-increment:g; position:relative; padding-left:34px; margin:11px 0; font-size:14.5px;}
+.guard li::before{content:counter(g); position:absolute; left:0; top:1px; width:22px; height:22px; background:var(--teal-bg); color:var(--teal); border-radius:50%; font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center;}
+.note{background:var(--gray-bg); border:1px solid var(--line2);}
+.note h4{color:var(--ink2);}
+.note p{font-size:14px; color:var(--ink2);}
+
+.phase{display:flex; gap:18px; margin:18px 0; align-items:flex-start;}
+.phase .pn{flex:0 0 auto; font-family:"Fraunces",serif; font-size:30px; font-weight:600; color:var(--accent); line-height:1; width:54px;}
+.phase .pb{flex:1;}
+.phase .pb h3{margin:0 0 2px;}
+.phase .pb p{margin:4px 0 0; font-size:14.5px; color:var(--ink2);}
+
+.stack-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:20px 0;}
+.stack-card{background:#fff; border:1px solid var(--line); border-radius:12px; padding:16px 18px;}
+.stack-card .k{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--accent); margin:0 0 5px;}
+.stack-card .v{font-size:14.5px; margin:0; color:var(--ink2);}
+
+footer{margin-top:72px; padding-top:22px; border-top:1px solid var(--line); font-size:12.5px; color:var(--ink2); font-family:"IBM Plex Mono",monospace;}
+
+@media (max-width:600px){
+  .wrap{padding:48px 22px 64px;} h1{font-size:34px;} .toc ol{columns:1;}
+  .phase{gap:12px;} .phase .pn{font-size:24px; width:40px;}
+}
+@media print{
+  body{background:#fff;} .wrap{padding:0; max-width:none;}
+  h2{break-after:avoid;} figure,.callout,.phase,table{break-inside:avoid;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">Documento de Arquitetura · Confidencial</p>
+  <h1>Plataforma SaaS DeFi —<br>Arquitetura de Solução</h1>
+  <p class="lede">Consolidação das decisões de produto e arquitetura para uma plataforma de tecnologia não-custodial, desenhada para operar com <strong>custo de licença financeira zero</strong> na sua fase inicial.</p>
+  <div class="meta">
+    <span><b>Modelo</b> · SaaS não-custodial</span>
+    <span><b>Sede</b> · Nova York (EUA)</span>
+    <span><b>Billing</b> · Assinatura</span>
+    <span><b>Versão</b> · 1.0 — 31 mai 2026</span>
+  </div>
+
+  <div class="toc">
+    <h4>Conteúdo</h4>
+    <ol>
+      <li><a href="#s1">Sumário das decisões</a></li>
+      <li><a href="#s2">Escopo: dentro e fora</a></li>
+      <li><a href="#s3">Princípios de arquitetura</a></li>
+      <li><a href="#s4">Arquitetura em camadas</a></li>
+      <li><a href="#s5">Módulos do contexto DeFi</a></li>
+      <li><a href="#s6">Fronteiras que não podem ser cruzadas</a></li>
+      <li><a href="#s7">Stack técnica</a></li>
+      <li><a href="#s8">Roadmap por fases</a></li>
+      <li><a href="#s9">Obrigações remanescentes</a></li>
+      <li><a href="#s10">Caminho de expansão futura</a></li>
+    </ol>
+  </div>
+
+  <h2 id="s1"><span class="num">01</span>Sumário das decisões</h2>
+  <hr class="section-rule">
+  <p>A plataforma é um produto de <strong>software (SaaS)</strong> para o ecossistema DeFi, oferecido por uma empresa de tecnologia. A decisão estruturante é incluir, na fase inicial, apenas funcionalidades que <strong>não acionam registro regulatório</strong> — evitando o custo de licença de consultor de investimento, exchange, custodiante ou transmissor de dinheiro.</p>
+  <p>As decisões que sustentam esse plano:</p>
+  <ul>
+    <li>A plataforma é <strong>não-custodial</strong>: chaves e fundos do cliente nunca entram no sistema.</li>
+    <li>A cobrança é <strong>por assinatura</strong>, não por percentual sobre operações — o que mantém a plataforma fora do regime de transmissão de dinheiro.</li>
+    <li>O conteúdo de mercado é <strong>impessoal</strong> (igual para todos), evitando o enquadramento como aconselhamento de investimento.</li>
+    <li>O ferramental de tokenização é <strong>genérico e neutro</strong>: o cliente é o emissor e o responsável.</li>
+    <li>A <strong>recomendação personalizada</strong> (robo-advisor) fica <strong>fora do escopo inicial</strong>, por ser a única feature que aciona registro como consultor (RIA nos EUA / Consultoria CVM no Brasil) independentemente de ser software.</li>
+    <li>Tecnicamente, o módulo entra como um <strong>contexto isolado</strong> (bounded context) dentro do monorepo Python 3.12 / FastAPI já existente.</li>
+  </ul>
+
+  <h2 id="s2"><span class="num">02</span>Escopo: o que entra e o que fica de fora</h2>
+  <hr class="section-rule">
+  <p>O custo regulatório não está colado em "ser um SaaS"; está colado a atividades específicas. As funcionalidades abaixo foram classificadas por aquilo que acionam — ou não.</p>
+  <table>
+    <thead><tr><th>Funcionalidade</th><th>Status</th><th>Por quê</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Cotações &amp; índices</strong><br>dados de mercado</td><td><span class="tag zero">Licença zero</span></td><td>Produto de informação; não exige licença financeira.</td></tr>
+      <tr><td><strong>Carteira &amp; transações</strong><br>conexão não-custodial</td><td><span class="tag zero">Licença zero</span></td><td>Não-custodial + cobrança por assinatura ⇒ não aciona transmissor de dinheiro.</td></tr>
+      <tr><td><strong>Pesquisa &amp; rankings</strong><br>conteúdo impessoal</td><td><span class="tag zero">Licença zero</span></td><td>Conteúdo igual para todos; fica do lado da publisher's exemption.</td></tr>
+      <tr><td><strong>Tokenização</strong><br>ferramental genérico</td><td><span class="tag zero">Licença zero · fase 2</span></td><td>Ferramenta neutra em que o cliente é o emissor e o responsável pela classificação.</td></tr>
+      <tr><td><strong>Recomendação personalizada</strong><br>robo-advisor</td><td><span class="tag cost">Aciona registro</span></td><td>Conselho individualizado sobre investimento ⇒ RIA (EUA) / Consultoria CVM (Brasil). <strong>Fora do escopo inicial.</strong></td></tr>
+      <tr><td><strong>Distribuição de tokens-valores mobiliários</strong></td><td><span class="tag cost">Aciona registro</span></td><td>Sai de "ferramenta neutra" para distribuidor de securities (SEC / CVM). Fora do escopo.</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="s3"><span class="num">03</span>Princípios de arquitetura</h2>
+  <hr class="section-rule">
+  <p>Estes princípios são as invariantes que mantêm o custo de licença em zero. Toda decisão técnica deve respeitá-los.</p>
+  <h3>Não-custodial por desenho</h3>
+  <p>As chaves privadas e os fundos do cliente nunca entram na plataforma nem em qualquer infraestrutura sob controle da empresa. O cliente assina as próprias transações no lado dele (via SDK de carteira, ex. MetaMask).</p>
+  <h3>Software puro, não intermediário</h3>
+  <p>A plataforma fornece a ferramenta; o cliente opera. A empresa não toma decisões discricionárias sobre fundos nem executa operações em nome do cliente.</p>
+  <h3>Billing fora do fluxo de fundos</h3>
+  <p>A receita vem de assinatura, cobrada à parte. Nenhum valor é retido de dentro do fluxo de uma transação — é exatamente essa separação que evita o enquadramento como transmissão de dinheiro.</p>
+  <h3>Ferramental neutro e conteúdo impessoal</h3>
+  <p>O ferramental de tokenização é genérico (o cliente decide o uso) e a pesquisa é publicada igualmente para todos. Nada de curadoria de uso específico de token nem de recomendação individualizada por perfil.</p>
+  <h3>Contexto DeFi isolado</h3>
+  <p>O novo módulo entra como bounded context dentro do monorepo FastAPI, com fronteira explícita, sem espalhar lógica de blockchain pelo código existente.</p>
+
+  <h2 id="s4"><span class="num">04</span>Arquitetura em camadas</h2>
+  <hr class="section-rule">
+  <p>A leitura é de cima para baixo. As cores indicam o ponto central do desenho: tudo que é software da empresa (azul) nunca toca em fundos; chaves e custódia (verde) vivem no cliente e em parceiros licenciados.</p>
+  <figure>
+    <svg viewBox="0 0 680 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Arquitetura em quatro camadas: cliente, monorepo FastAPI, infraestrutura off-chain e sistemas externos.">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+      </defs>
+
+      <rect x="40" y="16" width="600" height="96" rx="12" fill="none" stroke="#CFC9BB" stroke-width="1" stroke-dasharray="4 4"/>
+      <text class="svg-lbl" x="56" y="46" fill="#5F5E5A">Camada do cliente</text>
+      <rect x="56" y="60" width="274" height="44" rx="8" fill="#F0EDE5" stroke="#CFC9BB" stroke-width="1"/>
+      <text class="svg-t" x="193" y="78" text-anchor="middle" dominant-baseline="central" fill="#444441">App web / mobile</text>
+      <text class="svg-s" x="193" y="94" text-anchor="middle" dominant-baseline="central" fill="#5F5E5A">interface da plataforma</text>
+      <rect x="350" y="60" width="274" height="44" rx="8" fill="#E2F2EC" stroke="#92CEB6" stroke-width="1"/>
+      <text class="svg-t" x="487" y="78" text-anchor="middle" dominant-baseline="central" fill="#0F6E56">Carteira do cliente</text>
+      <text class="svg-s" x="487" y="94" text-anchor="middle" dominant-baseline="central" fill="#0F6E56">as chaves ficam aqui</text>
+
+      <line x1="340" y1="112" x2="340" y2="130" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+
+      <rect x="40" y="132" width="600" height="96" rx="12" fill="none" stroke="#CFC9BB" stroke-width="1" stroke-dasharray="4 4"/>
+      <text class="svg-lbl" x="56" y="162" fill="#5F5E5A">Monorepo FastAPI — SaaS não-custodial</text>
+      <rect x="56" y="176" width="274" height="44" rx="8" fill="#E9F1FA" stroke="#9CC2E8" stroke-width="1"/>
+      <text class="svg-t" x="193" y="194" text-anchor="middle" dominant-baseline="central" fill="#185FA5">Plataforma atual</text>
+      <text class="svg-s" x="193" y="210" text-anchor="middle" dominant-baseline="central" fill="#185FA5">produtos próprios, billing</text>
+      <rect x="350" y="176" width="274" height="44" rx="8" fill="#E9F1FA" stroke="#9CC2E8" stroke-width="1"/>
+      <text class="svg-t" x="487" y="194" text-anchor="middle" dominant-baseline="central" fill="#185FA5">Contexto DeFi</text>
+      <text class="svg-s" x="487" y="210" text-anchor="middle" dominant-baseline="central" fill="#185FA5">módulo isolado (bounded context)</text>
+
+      <line x1="340" y1="228" x2="340" y2="246" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+
+      <rect x="40" y="248" width="600" height="96" rx="12" fill="none" stroke="#CFC9BB" stroke-width="1" stroke-dasharray="4 4"/>
+      <text class="svg-lbl" x="56" y="278" fill="#5F5E5A">Infraestrutura off-chain</text>
+      <rect x="56" y="292" width="274" height="44" rx="8" fill="#E9F1FA" stroke="#9CC2E8" stroke-width="1"/>
+      <text class="svg-t" x="193" y="310" text-anchor="middle" dominant-baseline="central" fill="#185FA5">Workers &amp; filas</text>
+      <text class="svg-s" x="193" y="326" text-anchor="middle" dominant-baseline="central" fill="#185FA5">confirmações, idempotência</text>
+      <rect x="350" y="292" width="274" height="44" rx="8" fill="#E9F1FA" stroke="#9CC2E8" stroke-width="1"/>
+      <text class="svg-t" x="487" y="310" text-anchor="middle" dominant-baseline="central" fill="#185FA5">Indexador on-chain</text>
+      <text class="svg-s" x="487" y="326" text-anchor="middle" dominant-baseline="central" fill="#185FA5">lê eventos, sem custódia</text>
+
+      <line x1="340" y1="344" x2="340" y2="362" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+
+      <rect x="40" y="364" width="600" height="96" rx="12" fill="none" stroke="#CFC9BB" stroke-width="1" stroke-dasharray="4 4"/>
+      <text class="svg-lbl" x="56" y="394" fill="#5F5E5A">Sistemas externos (fora do seu controle)</text>
+      <rect x="56" y="408" width="178" height="44" rx="8" fill="#F0EDE5" stroke="#CFC9BB" stroke-width="1"/>
+      <text class="svg-t" x="145" y="426" text-anchor="middle" dominant-baseline="central" fill="#444441">Dados de mercado</text>
+      <text class="svg-s" x="145" y="442" text-anchor="middle" dominant-baseline="central" fill="#5F5E5A">read-only</text>
+      <rect x="250" y="408" width="178" height="44" rx="8" fill="#E2F2EC" stroke="#92CEB6" stroke-width="1"/>
+      <text class="svg-t" x="339" y="426" text-anchor="middle" dominant-baseline="central" fill="#0F6E56">Parceiros</text>
+      <text class="svg-s" x="339" y="442" text-anchor="middle" dominant-baseline="central" fill="#0F6E56">on/off-ramp, custódia</text>
+      <rect x="444" y="408" width="178" height="44" rx="8" fill="#F0EDE5" stroke="#CFC9BB" stroke-width="1"/>
+      <text class="svg-t" x="533" y="426" text-anchor="middle" dominant-baseline="central" fill="#444441">Blockchain (EVM)</text>
+      <text class="svg-s" x="533" y="442" text-anchor="middle" dominant-baseline="central" fill="#5F5E5A">liquidação on-chain</text>
+
+      <rect x="56" y="475" width="11" height="11" rx="2" fill="#185FA5"/><text class="svg-s" x="73" y="484" fill="#5F5E5A">Seu software (não-custodial)</text>
+      <rect x="290" y="475" width="11" height="11" rx="2" fill="#0F6E56"/><text class="svg-s" x="307" y="484" fill="#5F5E5A">Custódia (cliente / parceiros)</text>
+      <rect x="520" y="475" width="11" height="11" rx="2" fill="#888780"/><text class="svg-s" x="537" y="484" fill="#5F5E5A">Externo / infra</text>
+    </svg>
+    <figcaption>Visão geral em camadas. A linha não-custodial separa o software da empresa (azul) dos pontos onde fundos e chaves realmente vivem (verde).</figcaption>
+  </figure>
+
+  <h2 id="s5"><span class="num">05</span>Módulos do contexto DeFi</h2>
+  <hr class="section-rule">
+  <p>Dentro do contexto isolado, quatro módulos compõem o escopo de licença zero. A recomendação personalizada aparece deliberadamente <em>fora</em> da fronteira.</p>
+  <figure>
+    <svg viewBox="0 0 680 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Quatro módulos do contexto DeFi dentro do escopo, e a recomendação personalizada fora do escopo.">
+      <rect x="40" y="16" width="600" height="186" rx="12" fill="none" stroke="#CFC9BB" stroke-width="1" stroke-dasharray="4 4"/>
+      <text class="svg-lbl" x="56" y="42" fill="#5F5E5A">Contexto DeFi — escopo do plano de licença zero</text>
+
+      <rect x="56" y="58" width="274" height="56" rx="8" fill="#E2F2EC" stroke="#92CEB6" stroke-width="1"/>
+      <text class="svg-t" x="193" y="80" text-anchor="middle" dominant-baseline="central" fill="#0F6E56">Cotações &amp; índices</text>
+      <text class="svg-s" x="193" y="98" text-anchor="middle" dominant-baseline="central" fill="#0F6E56">dados de mercado · fase 1</text>
+      <rect x="350" y="58" width="274" height="56" rx="8" fill="#E2F2EC" stroke="#92CEB6" stroke-width="1"/>
+      <text class="svg-t" x="487" y="80" text-anchor="middle" dominant-baseline="central" fill="#0F6E56">Pesquisa impessoal</text>
+      <text class="svg-s" x="487" y="98" text-anchor="middle" dominant-baseline="central" fill="#0F6E56">rankings públicos · fase 1</text>
+      <rect x="56" y="130" width="274" height="56" rx="8" fill="#E2F2EC" stroke="#92CEB6" stroke-width="1"/>
+      <text class="svg-t" x="193" y="152" text-anchor="middle" dominant-baseline="central" fill="#0F6E56">Carteira &amp; transações</text>
+      <text class="svg-s" x="193" y="170" text-anchor="middle" dominant-baseline="central" fill="#0F6E56">não-custodial · fase 1</text>
+      <rect x="350" y="130" width="274" height="56" rx="8" fill="#FAF0DD" stroke="#E8C27E" stroke-width="1"/>
+      <text class="svg-t" x="487" y="152" text-anchor="middle" dominant-baseline="central" fill="#854F0B">Tokenização genérica</text>
+      <text class="svg-s" x="487" y="170" text-anchor="middle" dominant-baseline="central" fill="#854F0B">cliente é o emissor · fase 2</text>
+
+      <rect x="40" y="216" width="600" height="40" rx="8" fill="none" stroke="#CFC9BB" stroke-width="1" stroke-dasharray="5 4"/>
+      <text x="340" y="236" text-anchor="middle" dominant-baseline="central" font-family="Public Sans,sans-serif" font-size="13" font-style="italic" fill="#8A887F">Fora do escopo — recomendação personalizada (acionaria registro RIA / Consultoria CVM)</text>
+
+      <rect x="56" y="270" width="11" height="11" rx="2" fill="#0F6E56"/><text class="svg-s" x="73" y="279" fill="#5F5E5A">Fase 1 — lançamento</text>
+      <rect x="250" y="270" width="11" height="11" rx="2" fill="#BA7517"/><text class="svg-s" x="267" y="279" fill="#5F5E5A">Fase 2 — ferramental neutro</text>
+    </svg>
+    <figcaption>Os quatro módulos do escopo de licença zero, e a fronteira que separa o que fica deliberadamente de fora.</figcaption>
+  </figure>
+  <h3>Cotações &amp; índices</h3>
+  <p>Consome APIs externas de dados de mercado (read-only) e expõe cotações, índices e rankings. Produto de informação; é o carro-chefe de aquisição e o de menor risco.</p>
+  <h3>Carteira &amp; transações</h3>
+  <p>Integra o SDK de carteira (ex. MetaMask) para o cliente conectar a própria carteira e assinar as próprias transações. A plataforma monta a transação não-assinada; o cliente assina; os fundos nunca passam pela empresa.</p>
+  <h3>Pesquisa impessoal</h3>
+  <p>Publica análises e rankings de mercado de forma idêntica para todos os assinantes — sem personalização por perfil ou carteira. Esse limite é o que mantém o módulo fora do regime de aconselhamento.</p>
+  <h3>Tokenização genérica (fase 2)</h3>
+  <p>Disponibiliza templates de smart contract auditados e parametrizáveis (factory pattern). O cliente é o emissor e o responsável pela classificação e uso do token. A plataforma não curadoria, recomenda nem estrutura usos específicos.</p>
+
+  <h2 id="s6"><span class="num">06</span>Fronteiras que não podem ser cruzadas</h2>
+  <hr class="section-rule">
+  <p>Estas são as linhas operacionais que mantêm a plataforma no terreno de licença zero. Cruzar qualquer uma delas converte a empresa numa atividade regulada (transmissão de dinheiro, aconselhamento de investimento ou distribuição de valores mobiliários).</p>
+  <div class="callout guard">
+    <h4>Linhas que o produto não atravessa</h4>
+    <ol>
+      <li>Chaves privadas e fundos do cliente <strong>nunca</strong> entram na plataforma nem em infraestrutura controlada pela empresa.</li>
+      <li>Nenhum valor de cliente <strong>transita</strong> por contas ou carteiras da empresa — nem por um instante.</li>
+      <li>O billing é <strong>sempre por assinatura</strong>, cobrado à parte; nunca retido de dentro do fluxo de uma transação.</li>
+      <li>Recomendações e conteúdos são <strong>impessoais</strong>, publicados igualmente para todos. Nada de recomendação individualizada por perfil/carteira.</li>
+      <li>O ferramental de tokenização é <strong>genérico</strong>: o cliente é o emissor e o responsável; a empresa não curadoria nem estrutura usos específicos.</li>
+      <li>A empresa <strong>nunca</strong> executa ordens discricionárias nem administra carteiras em nome do cliente.</li>
+      <li>Smart contracts vêm de <strong>templates auditados</strong> — nada de geração livre e não auditada de contratos.</li>
+    </ol>
+  </div>
+
+  <h2 id="s7"><span class="num">07</span>Stack técnica</h2>
+  <hr class="section-rule">
+  <p>O monorepo Python 3.12 / FastAPI permanece como camada de orquestração. O subsistema DeFi é poliglota, coordenado pelo FastAPI.</p>
+  <div class="stack-grid">
+    <div class="stack-card"><p class="k">orquestração</p><p class="v">Python 3.12 · FastAPI (monorepo, contexto DeFi isolado)</p></div>
+    <div class="stack-card"><p class="k">blockchain</p><p class="v"><code>web3.py</code> (EVM) · SDK de carteira (MetaMask)</p></div>
+    <div class="stack-card"><p class="k">assíncrono</p><p class="v">Fila &amp; workers (ARQ ou Celery) · idempotência e reconciliação</p></div>
+    <div class="stack-card"><p class="k">indexação</p><p class="v">Indexador on-chain (subgraph próprio ou serviço de nó)</p></div>
+    <div class="stack-card"><p class="k">dados de mercado</p><p class="v">APIs externas read-only de cotação/índices</p></div>
+    <div class="stack-card"><p class="k">chaves operacionais</p><p class="v">KMS/HSM (apenas chaves da empresa, ex. deploy) — nunca chaves de cliente</p></div>
+    <div class="stack-card"><p class="k">contratos (fase 2)</p><p class="v">Solidity/Vyper · Foundry ou Hardhat · templates auditados</p></div>
+    <div class="stack-card"><p class="k">controles</p><p class="v">Triagem OFAC/sanções · Termos de Uso · trilha de auditoria</p></div>
+  </div>
+
+  <h2 id="s8"><span class="num">08</span>Roadmap por fases</h2>
+  <hr class="section-rule">
+  <div class="phase"><div class="pn">F1</div><div class="pb"><h3>MVP de licença zero · global</h3><p>Cotações &amp; índices + carteira não-custodial + pesquisa impessoal. Conquista usuários e receita de assinatura sem acionar registro. Lançamento global.</p></div></div>
+  <div class="phase"><div class="pn">F2</div><div class="pb"><h3>Ferramental de tokenização genérico</h3><p>Templates auditados em que o cliente é o emissor. Mantém-se "ferramenta neutra"; requer validação jurídica prévia para não cruzar a fronteira de distribuição de valores mobiliários.</p></div></div>
+  <div class="phase"><div class="pn">F3</div><div class="pb"><h3>Opcional — recomendação personalizada (quando o volume justificar)</h3><p>Pluga o módulo de robo-advisor regulado, assumindo o custo de registro. Começar pelo Brasil (Consultoria CVM — taxa anual na casa de poucos milhares de reais) antes dos EUA (RIA — dezenas de milhares de dólares ao ano). A borda da arquitetura já está desenhada para receber esse módulo sem retrabalho.</p></div></div>
+
+  <h2 id="s9"><span class="num">09</span>Obrigações remanescentes</h2>
+  <hr class="section-rule">
+  <p>Custo de licença financeira zero não significa custo zero de operação. Como qualquer empresa de tecnologia, permanecem:</p>
+  <ul>
+    <li><strong>Constituição societária</strong> e <strong>impostos</strong> sobre o faturamento da assinatura.</li>
+    <li><strong>Triagem de sanções/OFAC</strong> — não servir, sabendo, pessoas ou jurisdições sancionadas.</li>
+    <li><strong>Termos de Uso</strong> bem desenhados, deixando claro que o cliente é o operador e o responsável.</li>
+    <li>Obrigações ordinárias de <strong>proteção de dados</strong> e consumo. Nada disso é uma licença financeira.</li>
+  </ul>
+
+  <h2 id="s10"><span class="num">10</span>Caminho de expansão futura</h2>
+  <hr class="section-rule">
+  <p>A fronteira foi desenhada para que a recomendação personalizada — a feature que aciona registro — possa ser adicionada depois como um módulo regulado e separado, sem refazer a base não-custodial. Quando esse momento chegar, o módulo de recomendação deverá nascer com três requisitos de robo-advisor regulado: versionamento do algoritmo, trilha de auditoria de cada recomendação gerada (qual versão do modelo, com quais inputs, recomendou o quê e quando) e capacidade de manter o código inspecionável para o regulador. Esses requisitos já estão antecipados na separação de contextos.</p>
+
+  <div class="callout note">
+    <h4>Ressalva importante</h4>
+    <p>Este documento é um guia de arquitetura e de decisão — não é parecer jurídico. Os enquadramentos refletem a análise feita ao longo do planejamento, e a classificação final de cada funcionalidade depende dos detalhes concretos do fluxo de fundos e dos tokens envolvidos. Antes de implementar, recomenda-se validar o desenho (em especial o ferramental de tokenização e a fronteira não-custodial) com um advogado de mercado de capitais com banca nos EUA e, se houver atuação no Brasil, na CVM. Valores regulatórios citados são de referência 2025–2026 e devem ser confirmados.</p>
+  </div>
+
+  <footer>
+    Plataforma SaaS DeFi · Arquitetura de Solução v1.0 · Documento interno · 31 mai 2026
+  </footer>
+
+</div>
+</body>
+</html>
