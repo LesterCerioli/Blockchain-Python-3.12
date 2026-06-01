@@ -296,6 +296,141 @@ pytest tests/blockchain/ -v
 
 ---
 
+### DeFi Bounded Context — Foundation (`app/services/defi/`)
+
+**Epic 1 / Task 1.1 — [issues #9, #16]**
+
+Establishes the isolated `services/defi/` bounded context inside the FastAPI monorepo following the same DDD layering already adopted in `services/blockchain/ethereum/`. No DeFi logic leaks outside this context.
+
+#### Package structure
+
+```
+app/services/defi/
+├── domain/
+│   ├── entities/          # Pydantic v2 domain entities (see below)
+│   ├── value_objects/     # Frozen dataclasses (see FEATURE 1.1.3 below)
+│   ├── interfaces/        # ABCs — no concrete implementation in the domain
+│   └── exceptions.py      # DeFiError hierarchy
+├── application/
+│   └── quote_service.py   # QuoteService — orchestrates without infra dependencies
+├── infrastructure/
+│   ├── config/settings.py # DeFiSettings (DEFI_ prefix, separate from EthereumSettings)
+│   ├── cache/
+│   ├── market_data/
+│   ├── persistence/
+│   ├── workers/
+│   ├── indexer/
+│   ├── compliance/
+│   └── audit/
+└── api/
+    ├── routers/           # FastAPI router — /v1/defi/quote
+    ├── schemas/           # Pydantic v2 request/response schemas
+    └── middleware/
+```
+
+#### Domain entities (`domain/entities/`)
+
+| Class | Description |
+|-------|-------------|
+| `Token` | ERC20 token descriptor with address and chain validation |
+| `Pool` | Liquidity pool with pair addresses, fee tier, and TVL |
+| `Position` | LP or lending position tied to a wallet and pool |
+| `Protocol` | DeFi protocol descriptor (name, version, chain) |
+| `Quote` | Swap quote result (amount in/out, slippage, price impact) |
+| `WalletSession` | Non-custodial session reference — holds address only, never private key |
+| `UnsignedTransaction` | EVM transaction payload ready for client-side signing; signing fields (v/r/s) are rejected on construction |
+| `MarketIndex` | On-chain index snapshot (symbol, value, timestamp) |
+| `ResearchReport` | Impersonal research record (title, summary, price target) |
+
+All entities use Pydantic v2 validation. `WalletSession` and `UnsignedTransaction` enforce the non-custodial invariant at the model level.
+
+#### Domain interfaces (`domain/interfaces/`)
+
+| Interface | Description |
+|-----------|-------------|
+| `ITokenRepository` | Port for token lookup by address and chain |
+| `IPoolRepository` | Port for pool discovery and TVL queries |
+| `IPositionRepository` | Port for user position reads and writes |
+| `IPriceOracle` | Port for spot and historical price feeds |
+| `ISwapService` | Port for quote computation and swap execution |
+
+All interfaces are abstract base classes (`ABC`) with no concrete implementation in the domain layer.
+
+#### Domain exceptions (`domain/exceptions.py`)
+
+All exceptions inherit from `DeFiError` (the bounded-context base):
+
+`TokenNotFoundError`, `PoolNotFoundError`, `NoPoolsForPairError`, `InsufficientLiquidityError`, `SlippageExceededError`, `ProtocolNotSupportedError`, `PriceUnavailableError`, `PositionNotFoundError`.
+
+---
+
+### DeFi Value Objects — FEATURE 1.1.3 (`app/services/defi/domain/value_objects/`)
+
+**[issue #42]** — Five new immutable value objects added to the DeFi domain layer. All are `@dataclass(frozen=True)`: mutation raises `FrozenInstanceError` at runtime. Plug-and-play addition — existing value objects (`Address`, `Price`, `Slippage`, `TokenAmount`) are untouched.
+
+| Class | File | Validation |
+|-------|------|------------|
+| `TokenAddress` | `token_address.py` | EIP-55 checksum via `web3.Web3.to_checksum_address()`; requires `0x` prefix; normalises to checksummed form regardless of input case |
+| `ChainId` | `chain_id.py` | Validated against the supported set `{1, 137, 42161, 8453}`; any other value raises `ValueError` with the list of supported chains |
+| `FiatPrice` | `fiat_price.py` | `amount >= 0`; `currency` must be a 3-letter alphabetic ISO 4217 code (normalised to uppercase) |
+| `CryptoAmount` | `crypto_amount.py` | `raw >= 0`; `decimals ∈ [0, 18]`; exposes `as_decimal` property (`Decimal(raw) / 10**decimals`) |
+| `TxHash` | `tx_hash.py` | Must match `^0x[0-9a-fA-F]{64}$`; stored lowercased |
+
+**Supported chains for `ChainId`:**
+
+| Chain ID | Network |
+|----------|---------|
+| 1 | Ethereum Mainnet |
+| 137 | Polygon |
+| 42161 | Arbitrum One |
+| 8453 | Base |
+
+**Usage example:**
+
+```python
+from app.services.defi.domain.value_objects import (
+    TokenAddress, ChainId, FiatPrice, CryptoAmount, TxHash
+)
+from decimal import Decimal
+
+# TokenAddress — normalises to EIP-55 checksum
+addr = TokenAddress("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
+# addr.value == "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+
+# ChainId — rejects unsupported networks
+chain = ChainId(137)   # Polygon — OK
+# ChainId(56)          # raises ValueError: Unsupported chain_id 56
+
+# FiatPrice — ISO 4217 currency
+price = FiatPrice(amount=Decimal("3500.00"), currency="usd")
+# price.currency == "USD"
+
+# CryptoAmount — smallest-unit representation
+one_eth = CryptoAmount(raw=10**18, decimals=18)
+# one_eth.as_decimal == Decimal("1")
+
+# TxHash — 32-byte transaction identifier
+tx = TxHash("0x" + "ab" * 32)
+# tx.value is lowercased
+
+# Immutability guaranteed
+from dataclasses import FrozenInstanceError
+try:
+    addr.value = "0x..."   # raises FrozenInstanceError
+except FrozenInstanceError:
+    pass
+```
+
+#### Running the value objects tests
+
+```bash
+pytest tests/defi/domain/test_value_objects.py -v
+```
+
+70 unit tests covering: valid construction, EIP-55 normalisation, chain ID rejection, currency normalisation, `FrozenInstanceError` on mutation, and all invalid-input edge cases.
+
+---
+
 ## Regulatory boundaries
 
 Zero financial license cost is not zero compliance. As a technology company the platform maintains:
