@@ -8,9 +8,9 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from services.blockchain.ethereum.api.routers.eth_router import router
-from services.blockchain.ethereum.domain.interfaces.health_monitor import ProviderHealth
-from services.blockchain.ethereum.domain.interfaces.network_service import NetworkInfo
+from app.services.blockchain.ethereum.api.routers.eth_router import router
+from app.services.blockchain.ethereum.domain.interfaces.health_monitor import ProviderHealth
+from app.services.blockchain.ethereum.domain.interfaces.network_service import NetworkInfo
 
 
 def _build_app(health_service, network_service) -> FastAPI:
