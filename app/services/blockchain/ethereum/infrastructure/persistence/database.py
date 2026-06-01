@@ -5,11 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 
 class Database:
-    """
-    Async SQLAlchemy engine wrapper with session factory (SRP: only manages
-    the connection pool and session lifecycle).
-    """
-
+    
     def __init__(self, url: str) -> None:
         self._engine = create_async_engine(url, pool_pre_ping=True, echo=False)
         self._session_factory = async_sessionmaker(
