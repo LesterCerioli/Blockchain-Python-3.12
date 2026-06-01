@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from ..domain.exceptions import (
     NoPoolsForPairError,
@@ -60,7 +60,11 @@ class QuoteService:
             token_in_address, token_out_address, amount_in, amount_out, chain_id
         )
 
-        actual_bps = int(price_impact * 10_000)
+        actual_bps = int(
+            Decimal(str(price_impact))
+            .scaleb(4)
+            .quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        )
         if actual_bps > slippage.bps:
             raise SlippageExceededError(expected_bps=slippage.bps, actual_bps=actual_bps)
 
