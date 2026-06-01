@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from services.blockchain.ethereum.infrastructure.rpc.circuit_breaker import (
+from app.services.blockchain.ethereum.infrastructure.rpc.circuit_breaker import (
     CircuitBreaker,
     CircuitState,
 )

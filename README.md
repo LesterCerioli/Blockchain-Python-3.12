@@ -261,6 +261,31 @@ ETH_STALE_BLOCK_THRESHOLD_SECONDS=30 \
 uvicorn services.blockchain.ethereum:app --port 8001
 ```
 
+#### Ethereum node provider — localhost vs. production
+
+Locally, the service defaults to `http://localhost:8545` (see `infrastructure/config/settings.py`), which expects a local Ethereum node such as Hardhat or Anvil:
+
+```bash
+npx hardhat node   # or: anvil
+```
+
+**This will not work when deployed to Render (or any container host).** There is no Ethereum node inside the container, and `localhost:8545` resolves to nothing. The correct production approach is to use an external **RPC-as-a-Service** provider — they run the node for you:
+
+| Provider | Free tier | Networks |
+|----------|-----------|----------|
+| [Infura](https://infura.io) | Yes | Mainnet, Sepolia, others |
+| [Alchemy](https://alchemy.com) | Yes | Mainnet, Polygon, others |
+| [QuickNode](https://quicknode.com) | Yes (limited) | Many |
+
+Create an account, copy the endpoint URL, and set it as an environment variable in the Render dashboard — no code change required, since `EthereumSettings` already reads from the `ETH_` prefix:
+
+```bash
+# Example for Render environment variables
+ETH_PROVIDERS=[{"name":"primary","url":"https://mainnet.infura.io/v3/YOUR_KEY","priority":1,"request_timeout":10.0,"circuit_breaker_failure_threshold":5,"circuit_breaker_recovery_seconds":60}]
+```
+
+A second Render instance running a full Ethereum node is not recommended — it is expensive and unnecessary when free RPC tiers are available.
+
 #### Running the tests
 
 ```bash

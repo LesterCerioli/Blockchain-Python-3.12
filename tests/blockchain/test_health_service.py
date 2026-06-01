@@ -8,9 +8,9 @@ import pytest_asyncio
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from services.blockchain.ethereum.application.health_service import HealthService
-from services.blockchain.ethereum.domain.entities.provider import ProviderRecord, ProviderStatus
-from services.blockchain.ethereum.infrastructure.persistence.in_memory_provider_repository import (
+from app.services.blockchain.ethereum.application.health_service import HealthService
+from app.services.blockchain.ethereum.domain.entities.provider import ProviderRecord, ProviderStatus
+from app.services.blockchain.ethereum.infrastructure.persistence.in_memory_provider_repository import (
     InMemoryProviderRepository,
 )
 

@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from services.blockchain.ethereum.infrastructure.providers.multi_provider import MultiProvider
+from app.services.blockchain.ethereum.infrastructure.providers.multi_provider import MultiProvider
 
 
 def _make_provider(name: str, priority: int, block_number: int | None):
