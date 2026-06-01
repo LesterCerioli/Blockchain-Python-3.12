@@ -5,7 +5,7 @@ from ..schemas.quote import QuoteRequest, QuoteResponse
 from ...application.quote_service import QuoteService
 from ...domain.exceptions import (
     DeFiError,
-    InsufficientLiquidityError,
+    NoPoolsForPairError,
     SlippageExceededError,
     TokenNotFoundError,
 )
@@ -34,8 +34,8 @@ async def get_quote(
         return QuoteResponse(**result)
     except TokenNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except InsufficientLiquidityError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except NoPoolsForPairError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except SlippageExceededError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except DeFiError as exc:

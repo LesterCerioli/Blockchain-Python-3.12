@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from ..domain.exceptions import (
-    InsufficientLiquidityError,
+    NoPoolsForPairError,
     SlippageExceededError,
     TokenNotFoundError,
 )
@@ -45,7 +45,7 @@ class QuoteService:
 
         pools = await self._pools.list_by_tokens(token_in_address, token_out_address, chain_id)
         if not pools:
-            raise InsufficientLiquidityError(f"{token_in_address}/{token_out_address}")
+            raise NoPoolsForPairError(token_in_address, token_out_address, chain_id)
 
         amount_in = TokenAmount(
             raw=amount_in_raw,

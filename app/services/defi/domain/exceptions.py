@@ -15,6 +15,16 @@ class PoolNotFoundError(DeFiError):
         self.address = address
 
 
+class NoPoolsForPairError(DeFiError):
+    def __init__(self, token_in: str, token_out: str, chain_id: int) -> None:
+        super().__init__(
+            f"No liquidity pools found for pair {token_in}/{token_out} on chain {chain_id}"
+        )
+        self.token_in = token_in
+        self.token_out = token_out
+        self.chain_id = chain_id
+
+
 class InsufficientLiquidityError(DeFiError):
     def __init__(self, pool_address: str) -> None:
         super().__init__(f"Insufficient liquidity in pool: {pool_address}")
