@@ -2,10 +2,10 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
-from smart_contract_generator.app.contract_generator import ERC20ContractGenerator
-from smart_contract_generator.app.token_services import format_token_transfer_data, prepare_contract_interaction_data
+from app.contract_generator import ERC20ContractGenerator
+from app.token_services import format_token_transfer_data, prepare_contract_interaction_data
 
-app = FastAPI()
+app = FastAPI(title="FastChainBank")
 
 
 class ERC20Properties(BaseModel):
