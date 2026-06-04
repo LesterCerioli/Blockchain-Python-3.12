@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from decimal import Decimal
 
@@ -5,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class ResearchReport(BaseModel):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4)
     title: str
     summary: str
     target_token: str
