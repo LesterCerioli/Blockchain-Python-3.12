@@ -1,6 +1,97 @@
+from __future__ import annotations
+
+
 class DeFiError(Exception):
     """Base exception for all DeFi bounded-context errors."""
 
+    def to_dict(self) -> dict:
+        data: dict = {"error": type(self).__name__, "message": str(self)}
+        data.update({k: v for k, v in vars(self).items() if not k.startswith("_")})
+        return data
+
+
+# ---------------------------------------------------------------------------
+# Market data errors
+# ---------------------------------------------------------------------------
+
+class MarketDataError(DeFiError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class ProviderUnavailableError(MarketDataError):
+    def __init__(self, provider: str) -> None:
+        super().__init__(f"Provider unavailable: {provider}")
+        self.provider = provider
+
+
+class RateLimitError(MarketDataError):
+    def __init__(self, provider: str, retry_after: int | None = None) -> None:
+        msg = f"Rate limit exceeded for provider: {provider}"
+        if retry_after is not None:
+            msg += f" (retry after {retry_after}s)"
+        super().__init__(msg)
+        self.provider = provider
+        self.retry_after = retry_after
+
+
+# ---------------------------------------------------------------------------
+# Wallet / address errors
+# ---------------------------------------------------------------------------
+
+class WalletConnectionError(DeFiError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class InvalidAddressError(WalletConnectionError):
+    def __init__(self, address: str) -> None:
+        super().__init__(f"Invalid wallet address: {address!r}")
+        self.address = address
+
+
+# ---------------------------------------------------------------------------
+# Non-custodial / compliance errors
+# ---------------------------------------------------------------------------
+
+class NonCustodialViolationError(DeFiError):
+    def __init__(self, violation_type: str, detail: str = "") -> None:
+        msg = f"Non-custodial violation [{violation_type}]"
+        if detail:
+            msg += f": {detail}"
+        super().__init__(msg)
+        self.violation_type = violation_type
+        self.detail = detail
+
+
+class SanctionedAddressError(DeFiError):
+    def __init__(self, address: str) -> None:
+        super().__init__(f"Sanctioned address rejected: {address}")
+        self.address = address
+
+
+class ToUNotAcceptedError(DeFiError):
+    def __init__(self, user_id: str = "") -> None:
+        msg = "Terms of Use not accepted"
+        if user_id:
+            msg += f" by user: {user_id}"
+        super().__init__(msg)
+        self.user_id = user_id
+
+
+# ---------------------------------------------------------------------------
+# Indexer / data-freshness errors
+# ---------------------------------------------------------------------------
+
+class IndexerLagError(DeFiError):
+    def __init__(self, lag_seconds: float) -> None:
+        super().__init__(f"Indexer lag too high: {lag_seconds:.1f}s")
+        self.lag_seconds = lag_seconds
+
+
+# ---------------------------------------------------------------------------
+# Pre-existing domain errors (kept for backwards compatibility)
+# ---------------------------------------------------------------------------
 
 class TokenNotFoundError(DeFiError):
     def __init__(self, address: str, chain_id: int) -> None:
