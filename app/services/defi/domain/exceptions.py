@@ -2,17 +2,13 @@ from __future__ import annotations
 
 
 class DeFiError(Exception):
-    """Base exception for all DeFi bounded-context errors."""
-
+    
     def to_dict(self) -> dict:
         data: dict = {"error": type(self).__name__, "message": str(self)}
         data.update({k: v for k, v in vars(self).items() if not k.startswith("_")})
         return data
 
 
-# ---------------------------------------------------------------------------
-# Market data errors
-# ---------------------------------------------------------------------------
 
 class MarketDataError(DeFiError):
     def __init__(self, message: str) -> None:
@@ -35,9 +31,6 @@ class RateLimitError(MarketDataError):
         self.retry_after = retry_after
 
 
-# ---------------------------------------------------------------------------
-# Wallet / address errors
-# ---------------------------------------------------------------------------
 
 class WalletConnectionError(DeFiError):
     def __init__(self, message: str) -> None:
@@ -49,10 +42,6 @@ class InvalidAddressError(WalletConnectionError):
         super().__init__(f"Invalid wallet address: {address!r}")
         self.address = address
 
-
-# ---------------------------------------------------------------------------
-# Non-custodial / compliance errors
-# ---------------------------------------------------------------------------
 
 class NonCustodialViolationError(DeFiError):
     def __init__(self, violation_type: str, detail: str = "") -> None:
@@ -79,19 +68,12 @@ class ToUNotAcceptedError(DeFiError):
         self.user_id = user_id
 
 
-# ---------------------------------------------------------------------------
-# Indexer / data-freshness errors
-# ---------------------------------------------------------------------------
-
 class IndexerLagError(DeFiError):
     def __init__(self, lag_seconds: float) -> None:
         super().__init__(f"Indexer lag too high: {lag_seconds:.1f}s")
         self.lag_seconds = lag_seconds
 
 
-# ---------------------------------------------------------------------------
-# Pre-existing domain errors (kept for backwards compatibility)
-# ---------------------------------------------------------------------------
 
 class TokenNotFoundError(DeFiError):
     def __init__(self, address: str, chain_id: int) -> None:

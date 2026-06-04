@@ -1,4 +1,4 @@
-"""Tests for FEATURE 1.1.5 — DeFi exception hierarchy (issue #44)."""
+
 import json
 
 import pytest
@@ -17,11 +17,6 @@ from app.services.defi.domain.exceptions import (
     ToUNotAcceptedError,
     WalletConnectionError,
 )
-
-
-# ---------------------------------------------------------------------------
-# Hierarchy
-# ---------------------------------------------------------------------------
 
 class TestHierarchy:
     def test_market_data_error_is_defi_error(self):
@@ -52,10 +47,6 @@ class TestHierarchy:
         assert issubclass(IndexerLagError, DeFiError)
 
 
-# ---------------------------------------------------------------------------
-# NonCustodialViolationError — violation_type field (DoD)
-# ---------------------------------------------------------------------------
-
 class TestNonCustodialViolationError:
     def test_violation_type_field(self):
         e = NonCustodialViolationError("PRIVATE_KEY_EXPOSURE")
@@ -75,10 +66,6 @@ class TestNonCustodialViolationError:
         assert d["violation_type"] == "PRIVATE_KEY_EXPOSURE"
         assert d["detail"] == "details"
 
-
-# ---------------------------------------------------------------------------
-# to_dict() — JSON serialization (DoD)
-# ---------------------------------------------------------------------------
 
 class TestToDict:
     def _assert_json_serializable(self, exc: DeFiError) -> None:
