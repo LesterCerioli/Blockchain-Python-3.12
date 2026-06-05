@@ -8,11 +8,24 @@ from ..domain.entities.wallet_session import WalletSession
 from ..domain.interfaces.market_data_provider import IMarketDataProvider
 from ..domain.interfaces.wallet_connector import IWalletConnector
 from ..infrastructure.config.settings import DeFiSettings
+from ..infrastructure.persistence.database import Database
+from ..infrastructure.persistence.platform_secrets_service import PlatformSecretsService
 
 
 @lru_cache
 def get_defi_settings() -> DeFiSettings:
     return DeFiSettings()
+
+
+@lru_cache
+def get_defi_database() -> Database:
+    return Database(get_defi_settings().database_url)
+
+
+def get_platform_secrets_service(
+    db: Database = Depends(get_defi_database),
+) -> PlatformSecretsService:
+    return PlatformSecretsService(db)
 
 
 def get_market_provider(request: Request) -> IMarketDataProvider:

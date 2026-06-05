@@ -431,6 +431,46 @@ pytest tests/defi/domain/test_value_objects.py -v
 
 ---
 
+### DeFi Settings — FEATURE 1.3.1 (`app/services/defi/infrastructure/config/settings.py`)
+
+**[issue #49]** — `DeFiSettings` extended with all platform-level configuration fields required to operate the DeFi bounded context. All fields have safe defaults — the service starts and serves requests without any environment variable defined.
+
+`DeFiSettings` uses `pydantic-settings` with `env_prefix="DEFI_"`. Every field maps to a `DEFI_<FIELD_NAME>` environment variable.
+
+#### Configuration reference
+
+| Field | Env variable | Default | Type |
+|-------|-------------|---------|------|
+| `redis_url` | `DEFI_REDIS_URL` | `redis://localhost:6379/0` | `str` |
+| `quote_cache_ttl_seconds` | `DEFI_QUOTE_CACHE_TTL_SECONDS` | `30` | `int` |
+| `history_cache_ttl_seconds` | `DEFI_HISTORY_CACHE_TTL_SECONDS` | `300` | `int` |
+| `market_data_timeout_seconds` | `DEFI_MARKET_DATA_TIMEOUT_SECONDS` | `10` | `int` |
+| `max_symbols_per_batch` | `DEFI_MAX_SYMBOLS_PER_BATCH` | `100` | `int` |
+| `coingecko_api_key` | `DEFI_COINGECKO_API_KEY` | `None` | `SecretStr` |
+| `cmc_api_key` | `DEFI_CMC_API_KEY` | `None` | `SecretStr` |
+| `ofac_api_key` | `DEFI_OFAC_API_KEY` | `None` | `SecretStr` |
+
+#### API key security model
+
+- API keys (`coingecko_api_key`, `cmc_api_key`, `ofac_api_key`) are declared as `Optional[SecretStr]`.
+- Pydantic masks their values as `SecretStr('**********')` in any `repr()`, `str()`, or log output — no custom code required.
+- Keys belong to the **platform operator**, not to end users. A single set of keys serves the entire subscriber base transparently.
+- Keys are optional: the service starts without them (free-tier or mock fallback). Set them only in production via a secrets manager or CI/CD secret injection — never in source-controlled files.
+
+#### Setting non-secret configuration in production
+
+```bash
+DEFI_REDIS_URL=redis://your-redis-host:6379/0
+DEFI_QUOTE_CACHE_TTL_SECONDS=30
+DEFI_HISTORY_CACHE_TTL_SECONDS=300
+DEFI_MARKET_DATA_TIMEOUT_SECONDS=10
+DEFI_MAX_SYMBOLS_PER_BATCH=100
+```
+
+Secret keys must be injected at deploy time via environment secrets — never committed to `.env` files in source control. See `.env.example` for the variable names.
+
+---
+
 ## Regulatory boundaries
 
 Zero financial license cost is not zero compliance. As a technology company the platform maintains:
@@ -717,6 +757,46 @@ pytest tests/blockchain/ -v
 ```
 
 21 testes unitários cobrindo: máquina de estados do circuit breaker, failover multi-provider, health service (verificações em paralelo, detecção de stale, isolamento de falha de DB) e endpoints de API.
+
+---
+
+### Configurações DeFi — FEATURE 1.3.1 (`app/services/defi/infrastructure/config/settings.py`)
+
+**[issue #49]** — `DeFiSettings` expandida com todos os campos de configuração de plataforma necessários para operar o contexto DeFi. Todos os campos têm defaults seguros — o serviço sobe e atende requisições sem nenhuma variável de ambiente definida.
+
+`DeFiSettings` usa `pydantic-settings` com `env_prefix="DEFI_"`. Cada campo corresponde a uma variável de ambiente `DEFI_<NOME_DO_CAMPO>`.
+
+#### Referência de configuração
+
+| Campo | Variável de ambiente | Default | Tipo |
+|-------|---------------------|---------|------|
+| `redis_url` | `DEFI_REDIS_URL` | `redis://localhost:6379/0` | `str` |
+| `quote_cache_ttl_seconds` | `DEFI_QUOTE_CACHE_TTL_SECONDS` | `30` | `int` |
+| `history_cache_ttl_seconds` | `DEFI_HISTORY_CACHE_TTL_SECONDS` | `300` | `int` |
+| `market_data_timeout_seconds` | `DEFI_MARKET_DATA_TIMEOUT_SECONDS` | `10` | `int` |
+| `max_symbols_per_batch` | `DEFI_MAX_SYMBOLS_PER_BATCH` | `100` | `int` |
+| `coingecko_api_key` | `DEFI_COINGECKO_API_KEY` | `None` | `SecretStr` |
+| `cmc_api_key` | `DEFI_CMC_API_KEY` | `None` | `SecretStr` |
+| `ofac_api_key` | `DEFI_OFAC_API_KEY` | `None` | `SecretStr` |
+
+#### Modelo de segurança das chaves de API
+
+- As chaves de API (`coingecko_api_key`, `cmc_api_key`, `ofac_api_key`) são declaradas como `Optional[SecretStr]`.
+- O Pydantic mascara seus valores como `SecretStr('**********')` em qualquer `repr()`, `str()` ou saída de log — sem código customizado.
+- As chaves pertencem ao **operador da plataforma**, não aos usuários finais. Um único conjunto de chaves atende toda a base de assinantes de forma transparente.
+- As chaves são opcionais: o serviço sobe sem elas (free-tier ou fallback mock). Defina-as em produção apenas via secrets manager ou injeção de segredos no CI/CD — nunca em arquivos `.env` versionados.
+
+#### Configuração dos campos não-secretos em produção
+
+```bash
+DEFI_REDIS_URL=redis://seu-redis:6379/0
+DEFI_QUOTE_CACHE_TTL_SECONDS=30
+DEFI_HISTORY_CACHE_TTL_SECONDS=300
+DEFI_MARKET_DATA_TIMEOUT_SECONDS=10
+DEFI_MAX_SYMBOLS_PER_BATCH=100
+```
+
+As chaves secretas devem ser injetadas em tempo de deploy via secrets de ambiente — nunca commitadas em arquivos `.env` no controle de versão. Consulte `.env.example` para os nomes das variáveis.
 
 ---
 
