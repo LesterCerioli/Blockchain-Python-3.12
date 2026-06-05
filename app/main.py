@@ -5,9 +5,11 @@ from typing import List, Dict, Any
 from app.contract_generator import ERC20ContractGenerator
 from app.token_services import format_token_transfer_data, prepare_contract_interaction_data
 from app.services.defi.api.routers import defi_router
+from app.services.defi.api.exception_handlers import register_defi_exception_handlers
 
 app = FastAPI(title="FastChainBank")
 
+register_defi_exception_handlers(app)
 app.include_router(defi_router)
 
 
