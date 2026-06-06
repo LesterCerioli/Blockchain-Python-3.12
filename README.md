@@ -153,29 +153,124 @@ Each service follows **hexagonal architecture**: a domain core isolated from HTT
 
 ## Local development
 
+### Prerequisites
+
+| Tool | Minimum version |
+|------|----------------|
+| Python | 3.12 |
+| Docker | 24+ |
+| Docker Compose | v2 (bundled with Docker Desktop or `docker compose` plugin) |
+
+---
+
+### 1. Environment variables
+
+Copy the example file and fill in any values you want to override:
+
 ```bash
-# Requirements: Python 3.12, Docker, docker compose
+cp .env.example .env
+```
 
-# 1. Bring up infrastructure (Postgres, Redis, local chain node or mock)
+The defaults in `.env.example` work out of the box for local development. **Do not commit `.env` to source control.**
+
+---
+
+### 2. Start the infrastructure
+
+```bash
 docker compose up -d
+```
 
-# 2. Create and activate a virtual environment
-python3.12 -m venv .venv && source .venv/bin/activate
+This starts four services:
 
-# 3. Install dependencies
+| Container | Image | Port(s) | Purpose |
+|-----------|-------|---------|---------|
+| `postgres` | `postgres:16-alpine` | `5432` | Primary database (two DBs created on first boot) |
+| `redis` | `redis:7-alpine` | `6379` | Cache — DeFi quotes and market data |
+| `eth-node` | `ethereum/client-go:stable` | `8545` | Local Ethereum node (Geth `--dev`, chain-id 1337, 2 s blocks) |
+| `bitcoind` | `ruimarinho/bitcoin-core` | `18443` (RPC) / `18444` (P2P) | Local Bitcoin node (regtest mode) |
+
+Check that all containers are healthy before proceeding:
+
+```bash
+docker compose ps
+```
+
+---
+
+### 3. Database initialisation (first boot)
+
+On the very first `docker compose up`, PostgreSQL runs `scripts/docker-init/00_init.sh` automatically via the `docker-entrypoint-initdb.d` mechanism. That script:
+
+- Creates the `cryptobank` database (DeFi service).
+- Applies `migrations/ethereum/001_create_eth_providers.sql` to the `fastchainbank` database.
+- Applies `migrations/defi/001_create_platform_secrets.sql` to `cryptobank`.
+
+**This only happens when the `postgres_data` volume is empty.** If the volume already contains data (e.g., on a second `docker compose up`), PostgreSQL skips the init scripts entirely.
+
+#### Verify the databases exist
+
+```bash
+docker compose exec postgres psql -U postgres -c "\l"
+```
+
+You should see both `fastchainbank` and `cryptobank` in the list.
+
+#### Run the init script manually (if databases are missing)
+
+If the volume already had data from a previous run and the databases were not created, run the init script inside the container:
+
+```bash
+docker compose exec postgres bash /docker-entrypoint-initdb.d/00_init.sh
+```
+
+> **Important:** never run `scripts/docker-init/00_init.sh` directly from your host machine. It uses the PostgreSQL Unix socket (`/var/run/postgresql/.s.PGSQL.5432`) which only exists inside the container.
+
+#### Full reset (destroys all local data)
+
+To start completely fresh — empty databases, empty chain state:
+
+```bash
+docker compose down -v   # removes volumes — all data is lost
+docker compose up -d     # re-creates everything from scratch
+```
+
+---
+
+### 4. Python environment
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+```
 
-# 4. Run database migrations
-alembic upgrade head
+---
 
-# 5. Start a service (example: Ethereum blockchain service)
-uvicorn services.blockchain.ethereum:app --reload --port 8001
+### 5. Start a service
 
-# 6. Start the smart contract generator
+```bash
+# Ethereum blockchain service
+uvicorn app.services.blockchain.ethereum.main:app --reload --port 8001
+
+# Smart contract generator
 uvicorn app.main:app --reload --port 8000
 ```
 
-Interactive API docs: `http://localhost:<port>/docs`
+Interactive API docs are available at `http://localhost:<port>/docs`.
+
+---
+
+### Local node endpoints
+
+| Node | URL (host) | URL (inside Docker network) |
+|------|------------|-----------------------------|
+| Ethereum (Geth dev) | `http://localhost:8545` | `http://eth-node:8545` |
+| Bitcoin Core (regtest RPC) | `http://localhost:18443` | `http://bitcoind:18443` |
+
+Bitcoin RPC credentials default to `bitcoin` / `bitcoin` (set `BTC_RPC_USER` and `BTC_RPC_PASSWORD` in `.env` to override).
+
+> **Production note:** in production, replace these local nodes with external RPC providers (Infura, Alchemy, QuickNode for Ethereum; a managed Bitcoin node for Bitcoin). No code change is required — both services read their endpoints from environment variables.
 
 ---
 
@@ -642,29 +737,124 @@ Cada serviço segue **arquitetura hexagonal**: núcleo de domínio isolado de ad
 
 ## Desenvolvimento local
 
+### Pré-requisitos
+
+| Ferramenta | Versão mínima |
+|------------|--------------|
+| Python | 3.12 |
+| Docker | 24+ |
+| Docker Compose | v2 (embutido no Docker Desktop ou plugin `docker compose`) |
+
+---
+
+### 1. Variáveis de ambiente
+
+Copie o arquivo de exemplo e ajuste os valores que precisar:
+
 ```bash
-# Requisitos: Python 3.12, Docker, docker compose
+cp .env.example .env
+```
 
-# 1. Subir infraestrutura (Postgres, Redis, nó de chain local ou mock)
+Os defaults do `.env.example` funcionam localmente sem alteração. **Não versione o arquivo `.env`.**
+
+---
+
+### 2. Subir a infraestrutura
+
+```bash
 docker compose up -d
+```
 
-# 2. Criar e ativar ambiente virtual
-python3.12 -m venv .venv && source .venv/bin/activate
+Quatro serviços sobem:
 
-# 3. Instalar dependências
+| Container | Imagem | Porta(s) | Finalidade |
+|-----------|--------|---------|-----------|
+| `postgres` | `postgres:16-alpine` | `5432` | Banco principal (dois bancos criados no primeiro boot) |
+| `redis` | `redis:7-alpine` | `6379` | Cache — cotações e dados de mercado DeFi |
+| `eth-node` | `ethereum/client-go:stable` | `8545` | Nó Ethereum local (Geth `--dev`, chain-id 1337, blocos de 2 s) |
+| `bitcoind` | `ruimarinho/bitcoin-core` | `18443` (RPC) / `18444` (P2P) | Nó Bitcoin local (modo regtest) |
+
+Verifique que todos estão healthy antes de continuar:
+
+```bash
+docker compose ps
+```
+
+---
+
+### 3. Inicialização do banco de dados (primeiro boot)
+
+No primeiro `docker compose up`, o PostgreSQL executa automaticamente o script `scripts/docker-init/00_init.sh` via mecanismo `docker-entrypoint-initdb.d`. Esse script:
+
+- Cria o banco `cryptobank` (serviço DeFi).
+- Aplica `migrations/ethereum/001_create_eth_providers.sql` no banco `fastchainbank`.
+- Aplica `migrations/defi/001_create_platform_secrets.sql` no banco `cryptobank`.
+
+**Isso só acontece quando o volume `postgres_data` está vazio.** Se o volume já contiver dados (ex.: num segundo `docker compose up`), o PostgreSQL pula os scripts de init.
+
+#### Verificar se os bancos existem
+
+```bash
+docker compose exec postgres psql -U postgres -c "\l"
+```
+
+Você deve ver `fastchainbank` e `cryptobank` na listagem.
+
+#### Rodar o script de init manualmente (se os bancos estiverem ausentes)
+
+Se o volume já tinha dados e os bancos não foram criados, execute o script dentro do container:
+
+```bash
+docker compose exec postgres bash /docker-entrypoint-initdb.d/00_init.sh
+```
+
+> **Importante:** nunca execute `scripts/docker-init/00_init.sh` diretamente no host. Ele usa o socket Unix do PostgreSQL (`/var/run/postgresql/.s.PGSQL.5432`), que só existe dentro do container.
+
+#### Reset completo (destrói todos os dados locais)
+
+Para começar do zero — bancos vazios, estado de chain zerado:
+
+```bash
+docker compose down -v   # remove os volumes — todos os dados são perdidos
+docker compose up -d     # recria tudo do zero
+```
+
+---
+
+### 4. Ambiente Python
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+```
 
-# 4. Executar migrações de banco de dados
-alembic upgrade head
+---
 
-# 5. Iniciar um serviço (exemplo: serviço Ethereum blockchain)
-uvicorn services.blockchain.ethereum:app --reload --port 8001
+### 5. Iniciar um serviço
 
-# 6. Iniciar o gerador de smart contracts
+```bash
+# Serviço blockchain Ethereum
+uvicorn app.services.blockchain.ethereum.main:app --reload --port 8001
+
+# Gerador de smart contracts
 uvicorn app.main:app --reload --port 8000
 ```
 
 Docs interativos da API: `http://localhost:<porta>/docs`
+
+---
+
+### Endpoints dos nós locais
+
+| Nó | URL (host) | URL (rede Docker) |
+|----|------------|-------------------|
+| Ethereum (Geth dev) | `http://localhost:8545` | `http://eth-node:8545` |
+| Bitcoin Core (regtest RPC) | `http://localhost:18443` | `http://bitcoind:18443` |
+
+As credenciais RPC do Bitcoin são `bitcoin` / `bitcoin` por padrão (configure `BTC_RPC_USER` e `BTC_RPC_PASSWORD` no `.env` para alterar).
+
+> **Nota de produção:** em produção, substitua os nós locais por provedores externos (Infura, Alchemy, QuickNode para Ethereum; nó Bitcoin gerenciado para Bitcoin). Nenhuma alteração de código é necessária — ambos os serviços leem seus endpoints de variáveis de ambiente.
 
 ---
 
