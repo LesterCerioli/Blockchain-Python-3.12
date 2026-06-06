@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from .admin_router import admin_router
+from .chains_router import chains_router
 from .quotes_router import quotes_router
 from .wallet_router import wallet_router
 from .research_router import research_router
@@ -19,6 +20,7 @@ async def defi_health() -> HealthResponse:
     return HealthResponse(status=HealthStatus.OK)
 
 
+defi_router.include_router(chains_router)
 defi_router.include_router(quotes_router)
 defi_router.include_router(wallet_router)
 defi_router.include_router(research_router)

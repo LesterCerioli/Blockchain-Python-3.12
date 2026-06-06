@@ -3,6 +3,7 @@ from typing import Annotated, Optional
 
 from fastapi import Depends, Header, HTTPException, Request, status
 
+from ..application.chain_config_service import ChainConfigService
 from ..application.quote_service import QuoteService
 from ..domain.entities.wallet_session import WalletSession
 from ..domain.interfaces.market_data_provider import IMarketDataProvider
@@ -15,6 +16,12 @@ from ..infrastructure.persistence.platform_secrets_service import PlatformSecret
 @lru_cache
 def get_defi_settings() -> DeFiSettings:
     return DeFiSettings()
+
+
+def get_chain_config_service(
+    settings: DeFiSettings = Depends(get_defi_settings),
+) -> ChainConfigService:
+    return ChainConfigService(settings)
 
 
 @lru_cache

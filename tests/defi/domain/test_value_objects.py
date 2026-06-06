@@ -1,12 +1,4 @@
-"""Unit tests for FEATURE 1.1.3 — Immutable value objects (issue #42).
 
-Covers: TokenAddress, ChainId, FiatPrice, CryptoAmount, TxHash.
-DoD:
-- All value objects are frozen (FrozenInstanceError on mutation).
-- TokenAddress rejects invalid addresses.
-- ChainId rejects unsupported chains.
-- Invalid cases are fully covered.
-"""
 from dataclasses import FrozenInstanceError
 from decimal import Decimal
 
@@ -112,6 +104,14 @@ class TestChainId:
     def test_base(self):
         c = ChainId(8453)
         assert c.value == 8453
+
+    def test_sepolia_testnet(self):
+        c = ChainId(11155111)
+        assert c.value == 11155111
+
+    def test_mumbai_testnet(self):
+        c = ChainId(80001)
+        assert c.value == 80001
 
     def test_int_conversion(self):
         assert int(ChainId(1)) == 1
