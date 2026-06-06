@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -80,3 +80,12 @@ class DeFiSettings(BaseSettings):
     market_data_timeout_seconds: int = 10
     max_symbols_per_batch: int = 100
     ofac_api_key: Optional[SecretStr] = None
+
+    @model_validator(mode="after")
+    def _validate_supported_chain_ids(self) -> "DeFiSettings":
+        for chain_id in self.supported_chain_ids:
+            if chain_id not in self.chains:
+                raise ValueError(
+                    f"supported_chain_id {chain_id} has no entry in chains"
+                )
+        return self
