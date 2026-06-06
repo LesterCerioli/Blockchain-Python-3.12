@@ -22,4 +22,8 @@ echo "[init] Applying DeFi migrations → $DEFI_DB"
 psql -v ON_ERROR_STOP=1 --username "$PGUSER" --dbname "$DEFI_DB" \
     -f /migrations/defi/001_create_platform_secrets.sql
 
+echo "[init] Applying Bitcoin migrations → $ETH_DB"
+psql -v ON_ERROR_STOP=1 --username "$PGUSER" --dbname "$ETH_DB" \
+    -f /migrations/bitcoin/001_create_btc_nodes.sql
+
 echo "[init] Done."
