@@ -16,9 +16,13 @@ class MarketDataError(DeFiError):
 
 
 class ProviderUnavailableError(MarketDataError):
-    def __init__(self, provider: str) -> None:
-        super().__init__(f"Provider unavailable: {provider}")
+    def __init__(self, provider: str, status_code: int | None = None) -> None:
+        msg = f"Market data provider unavailable: {provider}"
+        if status_code is not None:
+            msg += f" (HTTP {status_code})"
+        super().__init__(msg)
         self.provider = provider
+        self.status_code = status_code
 
 
 class RateLimitError(MarketDataError):
@@ -134,16 +138,3 @@ class PositionNotFoundError(DeFiError):
         self.position_id = position_id
 
 
-class RateLimitError(DeFiError):
-    def __init__(self, provider: str) -> None:
-        super().__init__(f"Rate limit exceeded for provider: {provider}")
-        self.provider = provider
-
-
-class ProviderUnavailableError(DeFiError):
-    def __init__(self, provider: str, status_code: int) -> None:
-        super().__init__(
-            f"Market data provider unavailable: {provider} (HTTP {status_code})"
-        )
-        self.provider = provider
-        self.status_code = status_code
