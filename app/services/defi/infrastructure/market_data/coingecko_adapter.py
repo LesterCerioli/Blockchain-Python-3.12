@@ -4,7 +4,6 @@ from decimal import Decimal
 import httpx
 
 from ...domain.exceptions import ProviderUnavailableError, RateLimitError
-from ...domain.interfaces.market_data_provider import IMarketDataProvider
 from ...domain.value_objects.market_quote import MarketQuote
 from ...domain.value_objects.ohlcv_candle import OHLCVCandle
 
@@ -32,7 +31,7 @@ def _raise_for_status(response: httpx.Response) -> None:
     response.raise_for_status()
 
 
-class CoinGeckoAdapter(IMarketDataProvider):
+class CoinGeckoAdapter:
 
     def __init__(self, client: httpx.AsyncClient, base_url: str = _BASE_URL) -> None:
         self._client = client
