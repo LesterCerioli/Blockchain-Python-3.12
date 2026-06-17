@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from ..dependencies import get_quote_service
 from ..schemas.quote import QuoteRequest, QuoteResponse
-from ...application.quote_service import QuoteService
+from ...application.quote_service import SwapQuoteService
 from ...domain.value_objects.slippage import Slippage
 
 quotes_router = APIRouter(prefix="/quotes", tags=["DeFi – Quotes"])
@@ -15,7 +15,7 @@ quotes_router = APIRouter(prefix="/quotes", tags=["DeFi – Quotes"])
 )
 async def get_quote(
     body: QuoteRequest,
-    quote_service: QuoteService = Depends(get_quote_service),
+    quote_service: SwapQuoteService = Depends(get_quote_service),
 ) -> QuoteResponse:
     result = await quote_service.get_quote(
         token_in_address=body.token_in,
