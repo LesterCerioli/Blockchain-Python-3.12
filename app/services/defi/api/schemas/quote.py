@@ -28,3 +28,18 @@ class MarketQuoteResponse(BaseModel):
     volume_24h_usd: str
     market_cap_usd: str
     fetched_at: datetime
+
+
+class CandleResponse(BaseModel):
+    open_time: datetime
+    open: str
+    high: str
+    low: str
+    close: str
+    volume: str
+
+
+class OHLCVResponse(BaseModel):
+    symbol: str
+    interval: str
+    candles: list[CandleResponse]
