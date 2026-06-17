@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -17,3 +19,12 @@ class QuoteResponse(BaseModel):
     price_impact_bps: int
     slippage_bps: int
     pool_count: int
+
+
+class MarketQuoteResponse(BaseModel):
+    symbol: str
+    price_usd: str
+    change_24h_pct: float
+    volume_24h_usd: str
+    market_cap_usd: str
+    fetched_at: datetime

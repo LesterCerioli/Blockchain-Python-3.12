@@ -1,6 +1,6 @@
 from .common import ErrorResponse, HealthResponse, HealthStatus, PaginatedResponse
 from .pool import PoolResponse
-from .quote import QuoteRequest, QuoteResponse
+from .quote import MarketQuoteResponse, QuoteRequest, QuoteResponse
 from .token import TokenResponse
 
 __all__ = [
@@ -9,6 +9,7 @@ __all__ = [
     "HealthStatus",
     "PaginatedResponse",
     "PoolResponse",
+    "MarketQuoteResponse",
     "QuoteRequest",
     "QuoteResponse",
     "TokenResponse",
