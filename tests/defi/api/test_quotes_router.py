@@ -10,6 +10,7 @@ from app.services.defi.api.dependencies import get_market_quote_service
 from app.services.defi.api.routers.quotes_router import quotes_router
 from app.services.defi.application.quote_service import QuoteService
 from app.services.defi.domain.entities.asset_quote import AssetQuote
+from app.services.defi.domain.value_objects.ohlcv_candle import OHLCVCandle
 
 
 def _make_client(mock_service: QuoteService) -> TestClient:
@@ -149,3 +150,278 @@ class TestGetMarketQuoteEndpoint:
 
         assert response.status_code == 404
         assert "UNKNOWN" in response.json()["detail"]
+
+
+class TestGetMarketQuotesBatchEndpoint:
+
+    def test_returns_200_with_single_symbol(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_market_quotes.return_value = [_mock_asset_quote("BTC")]
+        client = _make_client(service)
+
+        data = client.get("/quotes?symbols=BTC").json()
+
+        assert isinstance(data, list)
+        assert len(data) == 1
+        assert data[0]["symbol"] == "BTC"
+
+    def test_returns_multiple_symbols(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_market_quotes.return_value = [
+            _mock_asset_quote("BTC"),
+            _mock_asset_quote("ETH"),
+            _mock_asset_quote("SOL"),
+        ]
+        client = _make_client(service)
+
+        data = client.get("/quotes?symbols=BTC,ETH,SOL").json()
+
+        assert len(data) == 3
+        symbols = [item["symbol"] for item in data]
+        assert symbols == ["BTC", "ETH", "SOL"]
+
+    def test_price_usd_is_string_in_batch(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_market_quotes.return_value = [_mock_asset_quote("BTC")]
+        client = _make_client(service)
+
+        data = client.get("/quotes?symbols=BTC").json()
+
+        assert isinstance(data[0]["price_usd"], str)
+        assert data[0]["price_usd"] == "50000.00"
+
+    def test_50_symbols_returns_200(self):
+        service = AsyncMock(spec=QuoteService)
+        symbols = [f"SYM{i}" for i in range(50)]
+        service.get_market_quotes.return_value = [
+            _mock_asset_quote(s) for s in symbols
+        ]
+        client = _make_client(service)
+
+        query = ",".join(symbols)
+        response = client.get(f"/quotes?symbols={query}")
+
+        assert response.status_code == 200
+
+    def test_51_symbols_returns_422(self):
+        service = AsyncMock(spec=QuoteService)
+        client = _make_client(service)
+
+        symbols = ",".join([f"SYM{i}" for i in range(51)])
+        response = client.get(f"/quotes?symbols={symbols}")
+
+        assert response.status_code == 422
+        assert "50" in response.json()["detail"]
+
+    def test_422_detail_contains_count(self):
+        service = AsyncMock(spec=QuoteService)
+        client = _make_client(service)
+
+        symbols = ",".join([f"SYM{i}" for i in range(51)])
+        response = client.get(f"/quotes?symbols={symbols}")
+
+        assert "51" in response.json()["detail"]
+
+    def test_empty_symbols_returns_200_empty_list(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_market_quotes.return_value = []
+        client = _make_client(service)
+
+        data = client.get("/quotes?symbols=").json()
+
+        assert isinstance(data, list)
+        assert len(data) == 0
+
+    def test_symbols_with_spaces_are_trimmed(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_market_quotes.return_value = [
+            _mock_asset_quote("BTC"),
+            _mock_asset_quote("ETH"),
+        ]
+        client = _make_client(service)
+
+        data = client.get("/quotes?symbols=%20BTC%20,%20ETH%20").json()
+
+        assert len(data) == 2
+        assert data[0]["symbol"] == "BTC"
+        assert data[1]["symbol"] == "ETH"
+
+
+def _mock_candle(
+    timestamp: datetime | None = None,
+    open: Decimal = Decimal("50000"),
+    high: Decimal = Decimal("51000"),
+    low: Decimal = Decimal("49000"),
+    close: Decimal = Decimal("50500"),
+) -> OHLCVCandle:
+    return OHLCVCandle(
+        timestamp=timestamp or datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc),
+        open=open,
+        high=high,
+        low=low,
+        close=close,
+    )
+
+
+class TestGetOHLCVHistoryEndpoint:
+
+    def test_returns_200_with_candles(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_ohlcv.return_value = [_mock_candle()]
+        client = _make_client(service)
+
+        data = client.get(
+            "/quotes/BTC/history",
+            params={"interval": "1h", "from": "2026-01-01T00:00:00Z", "to": "2026-01-02T00:00:00Z"},
+        ).json()
+
+        assert data["symbol"] == "BTC"
+        assert data["interval"] == "1h"
+        assert isinstance(data["candles"], list)
+        assert len(data["candles"]) == 1
+
+    def test_candle_fields_are_present(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_ohlcv.return_value = [_mock_candle()]
+        client = _make_client(service)
+
+        data = client.get(
+            "/quotes/BTC/history",
+            params={"interval": "1h", "from": "2026-01-01T00:00:00Z", "to": "2026-01-02T00:00:00Z"},
+        ).json()
+
+        candle = data["candles"][0]
+        assert "open_time" in candle
+        assert "open" in candle
+        assert "high" in candle
+        assert "low" in candle
+        assert "close" in candle
+        assert "volume" in candle
+
+    def test_ohlcv_values_are_strings(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_ohlcv.return_value = [_mock_candle()]
+        client = _make_client(service)
+
+        data = client.get(
+            "/quotes/BTC/history",
+            params={"interval": "1h", "from": "2026-01-01T00:00:00Z", "to": "2026-01-02T00:00:00Z"},
+        ).json()
+
+        candle = data["candles"][0]
+        assert isinstance(candle["open"], str)
+        assert isinstance(candle["high"], str)
+        assert isinstance(candle["low"], str)
+        assert isinstance(candle["close"], str)
+        assert isinstance(candle["volume"], str)
+
+    def test_open_time_is_iso_8601(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_ohlcv.return_value = [_mock_candle()]
+        client = _make_client(service)
+
+        data = client.get(
+            "/quotes/BTC/history",
+            params={"interval": "1h", "from": "2026-01-01T00:00:00Z", "to": "2026-01-02T00:00:00Z"},
+        ).json()
+
+        dt = datetime.fromisoformat(data["candles"][0]["open_time"])
+        assert dt.year == 2026
+
+    def test_multiple_candles_returned(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_ohlcv.return_value = [
+            _mock_candle(timestamp=datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)),
+            _mock_candle(timestamp=datetime(2026, 1, 15, 13, 0, 0, tzinfo=timezone.utc)),
+        ]
+        client = _make_client(service)
+
+        data = client.get(
+            "/quotes/BTC/history",
+            params={"interval": "1h", "from": "2026-01-01T00:00:00Z", "to": "2026-01-02T00:00:00Z"},
+        ).json()
+
+        assert len(data["candles"]) == 2
+
+    @pytest.mark.parametrize("invalid_interval", ["2h", "30s", "abc", "1y", ""])
+    def test_invalid_interval_returns_422(self, invalid_interval: str):
+        service = AsyncMock(spec=QuoteService)
+        client = _make_client(service)
+
+        response = client.get(
+            "/quotes/BTC/history",
+            params={"interval": invalid_interval, "from": "2026-01-01T00:00:00Z", "to": "2026-01-02T00:00:00Z"},
+        )
+
+        assert response.status_code == 422
+        assert invalid_interval in response.json()["detail"]
+
+    @pytest.mark.parametrize("valid_interval", ["1m", "5m", "15m", "1h", "4h", "1d", "1w"])
+    def test_valid_intervals_return_200(self, valid_interval: str):
+        service = AsyncMock(spec=QuoteService)
+        service.get_ohlcv.return_value = [_mock_candle()]
+        client = _make_client(service)
+
+        response = client.get(
+            "/quotes/BTC/history",
+            params={"interval": valid_interval, "from": "2026-01-01T00:00:00Z", "to": "2026-01-02T00:00:00Z"},
+        )
+
+        assert response.status_code == 200
+
+    def test_range_exceeding_365_days_returns_422(self):
+        service = AsyncMock(spec=QuoteService)
+        client = _make_client(service)
+
+        response = client.get(
+            "/quotes/BTC/history",
+            params={
+                "interval": "1h",
+                "from": "2025-01-01T00:00:00Z",
+                "to": "2026-06-01T00:00:00Z",
+            },
+        )
+
+        assert response.status_code == 422
+        assert "365" in response.json()["detail"]
+
+    def test_range_within_365_days_returns_200(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_ohlcv.return_value = [_mock_candle()]
+        client = _make_client(service)
+
+        response = client.get(
+            "/quotes/BTC/history",
+            params={
+                "interval": "1h",
+                "from": "2026-01-01T00:00:00Z",
+                "to": "2026-06-01T00:00:00Z",
+            },
+        )
+
+        assert response.status_code == 200
+
+    def test_correct_values_in_response(self):
+        service = AsyncMock(spec=QuoteService)
+        service.get_ohlcv.return_value = [
+            _mock_candle(
+                timestamp=datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc),
+                open=Decimal("100.50"),
+                high=Decimal("110.75"),
+                low=Decimal("99.00"),
+                close=Decimal("105.25"),
+            ),
+        ]
+        client = _make_client(service)
+
+        data = client.get(
+            "/quotes/BTC/history",
+            params={"interval": "1h", "from": "2026-01-01T00:00:00Z", "to": "2026-01-02T00:00:00Z"},
+        ).json()
+
+        candle = data["candles"][0]
+        assert candle["open"] == "100.50"
+        assert candle["high"] == "110.75"
+        assert candle["low"] == "99.00"
+        assert candle["close"] == "105.25"
+        assert candle["volume"] == "0"

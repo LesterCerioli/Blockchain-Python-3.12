@@ -141,6 +141,10 @@ class QuoteService:
             return cached
         return await self._fetch_and_cache(symbol)
 
+    async def get_market_quotes(self, symbols_raw: str) -> list[AssetQuote]:
+        symbols = [s.strip().upper() for s in symbols_raw.split(",") if s.strip()]
+        return await self.get_quotes(symbols)
+
     async def get_quotes(self, symbols: list[str]) -> list[AssetQuote]:
         if not symbols:
             return []

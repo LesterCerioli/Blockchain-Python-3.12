@@ -134,6 +134,104 @@ class TestGetQuoteCacheMiss:
 
 
 # ---------------------------------------------------------------------------
+# get_market_quotes – symbol normalization
+# ---------------------------------------------------------------------------
+
+
+class TestGetMarketQuotes:
+    @pytest.mark.asyncio
+    async def test_parses_comma_separated_string(
+        self,
+        mock_provider: AsyncMock,
+        mock_cache: AsyncMock,
+    ) -> None:
+        btc = _quote("BTC")
+        eth = _quote("ETH")
+        mock_cache.get_many.return_value = [btc, eth]
+
+        svc = QuoteService(mock_provider, mock_cache)
+        result = await svc.get_market_quotes("BTC,ETH")
+
+        assert len(result) == 2
+        assert result[0].symbol == "BTC"
+        assert result[1].symbol == "ETH"
+
+    @pytest.mark.asyncio
+    async def test_trims_whitespace_around_symbols(
+        self,
+        mock_provider: AsyncMock,
+        mock_cache: AsyncMock,
+    ) -> None:
+        btc = _quote("BTC")
+        sol = _quote("SOL")
+        mock_cache.get_many.return_value = [btc, sol]
+
+        svc = QuoteService(mock_provider, mock_cache)
+        result = await svc.get_market_quotes("  BTC , SOL  ")
+
+        assert len(result) == 2
+        assert result[0].symbol == "BTC"
+        assert result[1].symbol == "SOL"
+
+    @pytest.mark.asyncio
+    async def test_uppercases_lowercase_input(
+        self,
+        mock_provider: AsyncMock,
+        mock_cache: AsyncMock,
+    ) -> None:
+        btc = _quote("BTC")
+        mock_cache.get_many.return_value = [btc]
+
+        svc = QuoteService(mock_provider, mock_cache)
+        result = await svc.get_market_quotes("btc")
+
+        assert len(result) == 1
+        assert result[0].symbol == "BTC"
+
+    @pytest.mark.asyncio
+    async def test_skips_empty_segments(
+        self,
+        mock_provider: AsyncMock,
+        mock_cache: AsyncMock,
+    ) -> None:
+        btc = _quote("BTC")
+        eth = _quote("ETH")
+        mock_cache.get_many.return_value = [btc, eth]
+
+        svc = QuoteService(mock_provider, mock_cache)
+        result = await svc.get_market_quotes("BTC,,,ETH")
+
+        assert len(result) == 2
+        assert result[0].symbol == "BTC"
+        assert result[1].symbol == "ETH"
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_list_for_blank_string(
+        self,
+        mock_provider: AsyncMock,
+        mock_cache: AsyncMock,
+    ) -> None:
+        svc = QuoteService(mock_provider, mock_cache)
+        result = await svc.get_market_quotes("")
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_delegates_to_get_quotes(
+        self,
+        mock_provider: AsyncMock,
+        mock_cache: AsyncMock,
+    ) -> None:
+        mock_cache.get_many.return_value = [None, None]
+
+        svc = QuoteService(mock_provider, mock_cache)
+        result = await svc.get_market_quotes("BTC,ETH")
+
+        assert len(result) == 2
+        assert {q.symbol for q in result} == {"BTC", "ETH"}
+
+
+# ---------------------------------------------------------------------------
 # get_quotes – empty list
 # ---------------------------------------------------------------------------
 
