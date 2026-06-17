@@ -4,7 +4,7 @@ from typing import Annotated, Optional
 from fastapi import Depends, Header, HTTPException, Request, status
 
 from ..application.chain_config_service import ChainConfigService
-from ..application.quote_service import QuoteService
+from ..application.quote_service import QuoteService, SwapQuoteService
 from ..domain.entities.wallet_session import WalletSession
 from ..domain.interfaces.market_data_provider import IMarketDataProvider
 from ..domain.interfaces.wallet_connector import IWalletConnector
@@ -61,5 +61,9 @@ async def get_current_wallet_session(
     return session
 
 
-def get_quote_service(request: Request) -> QuoteService:
+def get_quote_service(request: Request) -> SwapQuoteService:
     return request.app.state.defi_quote_service
+
+
+def get_market_quote_service(request: Request) -> QuoteService:
+    return request.app.state.defi_market_quote_service

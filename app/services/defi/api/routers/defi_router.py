@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..dependencies import get_quote_service
 from ..schemas.quote import QuoteRequest, QuoteResponse
-from ...application.quote_service import QuoteService
+from ...application.quote_service import SwapQuoteService
 from ...domain.exceptions import (
     DeFiError,
     NoPoolsForPairError,
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/v1/defi", tags=["defi"])
 )
 async def get_quote(
     body: QuoteRequest,
-    quote_service: QuoteService = Depends(get_quote_service),
+    quote_service: SwapQuoteService = Depends(get_quote_service),
 ) -> QuoteResponse:
     try:
         result = await quote_service.get_quote(

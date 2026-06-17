@@ -2,6 +2,7 @@ from .chain_provider import IChainProvider
 from .event_bus import EventHandler, IEventBus
 from .gas_estimator import IGasEstimator
 from .market_data_provider import IMarketDataProvider
+from .quote_cache import IQuoteCache
 from .pool_repository import IPoolRepository
 from .position_repository import IPositionRepository
 from .price_oracle import IPriceOracle
@@ -17,6 +18,7 @@ __all__ = [
     "IEventBus",
     "IGasEstimator",
     "IMarketDataProvider",
+    "IQuoteCache",
     "IPoolRepository",
     "IPositionRepository",
     "IPriceOracle",

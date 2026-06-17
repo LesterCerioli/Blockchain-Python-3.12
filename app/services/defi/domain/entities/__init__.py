@@ -1,3 +1,4 @@
+from .asset_quote import AssetQuote
 from .blockchain_event import BlockchainEvent
 from .chain_info import ChainInfo
 from .market_index import MarketIndex
@@ -12,6 +13,7 @@ from .unsigned_transaction import UnsignedTransaction
 from .wallet_session import WalletSession
 
 __all__ = [
+    "AssetQuote",
     "BlockchainEvent",
     "ChainInfo",
     "MarketIndex",
