@@ -59,3 +59,9 @@ class PositionNotFoundError(DeFiError):
     def __init__(self, position_id: str) -> None:
         super().__init__(f"Position not found: id={position_id}")
         self.position_id = position_id
+
+
+class ResearchReportNotFoundError(DeFiError):
+    def __init__(self, report_id: str) -> None:
+        super().__init__(f"ResearchReport not found: id={report_id}")
+        self.report_id = report_id
