@@ -1,7 +1,69 @@
-from fastapi import Request
+from functools import lru_cache
+from typing import Annotated, Optional
 
-from ..application.quote_service import QuoteService
+from fastapi import Depends, Header, HTTPException, Request, status
+
+from ..application.chain_config_service import ChainConfigService
+from ..application.quote_service import QuoteService, SwapQuoteService
+from ..domain.entities.wallet_session import WalletSession
+from ..domain.interfaces.market_data_provider import IMarketDataProvider
+from ..domain.interfaces.wallet_connector import IWalletConnector
+from ..infrastructure.config.settings import DeFiSettings
+from ..infrastructure.persistence.database import Database
+from ..infrastructure.persistence.platform_secrets_service import PlatformSecretsService
 
 
-def get_quote_service(request: Request) -> QuoteService:
+@lru_cache
+def get_defi_settings() -> DeFiSettings:
+    return DeFiSettings()
+
+
+def get_chain_config_service(
+    settings: DeFiSettings = Depends(get_defi_settings),
+) -> ChainConfigService:
+    return ChainConfigService(settings)
+
+
+@lru_cache
+def get_defi_database() -> Database:
+    return Database(get_defi_settings().database_url)
+
+
+def get_platform_secrets_service(
+    db: Database = Depends(get_defi_database),
+) -> PlatformSecretsService:
+    return PlatformSecretsService(db)
+
+
+def get_market_provider(request: Request) -> IMarketDataProvider:
+    return request.app.state.defi_market_provider
+
+
+def get_wallet_service(request: Request) -> IWalletConnector:
+    return request.app.state.defi_wallet_connector
+
+
+async def get_current_wallet_session(
+    x_session_id: Annotated[Optional[str], Header()] = None,
+    wallet_service: IWalletConnector = Depends(get_wallet_service),
+) -> WalletSession:
+    if not x_session_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing X-Session-Id header",
+        )
+    session = await wallet_service.get_session(x_session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session",
+        )
+    return session
+
+
+def get_quote_service(request: Request) -> SwapQuoteService:
     return request.app.state.defi_quote_service
+
+
+def get_market_quote_service(request: Request) -> QuoteService:
+    return request.app.state.defi_market_quote_service

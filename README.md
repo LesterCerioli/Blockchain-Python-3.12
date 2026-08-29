@@ -153,29 +153,124 @@ Each service follows **hexagonal architecture**: a domain core isolated from HTT
 
 ## Local development
 
+### Prerequisites
+
+| Tool | Minimum version |
+|------|----------------|
+| Python | 3.12 |
+| Docker | 24+ |
+| Docker Compose | v2 (bundled with Docker Desktop or `docker compose` plugin) |
+
+---
+
+### 1. Environment variables
+
+Copy the example file and fill in any values you want to override:
+
 ```bash
-# Requirements: Python 3.12, Docker, docker compose
+cp .env.example .env
+```
 
-# 1. Bring up infrastructure (Postgres, Redis, local chain node or mock)
+The defaults in `.env.example` work out of the box for local development. **Do not commit `.env` to source control.**
+
+---
+
+### 2. Start the infrastructure
+
+```bash
 docker compose up -d
+```
 
-# 2. Create and activate a virtual environment
-python3.12 -m venv .venv && source .venv/bin/activate
+This starts four services:
 
-# 3. Install dependencies
+| Container | Image | Port(s) | Purpose |
+|-----------|-------|---------|---------|
+| `postgres` | `postgres:16-alpine` | `5432` | Primary database (two DBs created on first boot) |
+| `redis` | `redis:7-alpine` | `6379` | Cache — DeFi quotes and market data |
+| `eth-node` | `ethereum/client-go:stable` | `8545` | Local Ethereum node (Geth `--dev`, chain-id 1337, 2 s blocks) |
+| `bitcoind` | `ruimarinho/bitcoin-core` | `18443` (RPC) / `18444` (P2P) | Local Bitcoin node (regtest mode) |
+
+Check that all containers are healthy before proceeding:
+
+```bash
+docker compose ps
+```
+
+---
+
+### 3. Database initialisation (first boot)
+
+On the very first `docker compose up`, PostgreSQL runs `scripts/docker-init/00_init.sh` automatically via the `docker-entrypoint-initdb.d` mechanism. That script:
+
+- Creates the `cryptobank` database (DeFi service).
+- Applies `migrations/ethereum/001_create_eth_providers.sql` to the `fastchainbank` database.
+- Applies `migrations/defi/001_create_platform_secrets.sql` to `cryptobank`.
+
+**This only happens when the `postgres_data` volume is empty.** If the volume already contains data (e.g., on a second `docker compose up`), PostgreSQL skips the init scripts entirely.
+
+#### Verify the databases exist
+
+```bash
+docker compose exec postgres psql -U postgres -c "\l"
+```
+
+You should see both `fastchainbank` and `cryptobank` in the list.
+
+#### Run the init script manually (if databases are missing)
+
+If the volume already had data from a previous run and the databases were not created, run the init script inside the container:
+
+```bash
+docker compose exec postgres bash /docker-entrypoint-initdb.d/00_init.sh
+```
+
+> **Important:** never run `scripts/docker-init/00_init.sh` directly from your host machine. It uses the PostgreSQL Unix socket (`/var/run/postgresql/.s.PGSQL.5432`) which only exists inside the container.
+
+#### Full reset (destroys all local data)
+
+To start completely fresh — empty databases, empty chain state:
+
+```bash
+docker compose down -v   # removes volumes — all data is lost
+docker compose up -d     # re-creates everything from scratch
+```
+
+---
+
+### 4. Python environment
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+```
 
-# 4. Run database migrations
-alembic upgrade head
+---
 
-# 5. Start a service (example: Ethereum blockchain service)
-uvicorn services.blockchain.ethereum:app --reload --port 8001
+### 5. Start a service
 
-# 6. Start the smart contract generator
+```bash
+# Ethereum blockchain service
+uvicorn app.services.blockchain.ethereum.main:app --reload --port 8001
+
+# Smart contract generator
 uvicorn app.main:app --reload --port 8000
 ```
 
-Interactive API docs: `http://localhost:<port>/docs`
+Interactive API docs are available at `http://localhost:<port>/docs`.
+
+---
+
+### Local node endpoints
+
+| Node | URL (host) | URL (inside Docker network) |
+|------|------------|-----------------------------|
+| Ethereum (Geth dev) | `http://localhost:8545` | `http://eth-node:8545` |
+| Bitcoin Core (regtest RPC) | `http://localhost:18443` | `http://bitcoind:18443` |
+
+Bitcoin RPC credentials default to `bitcoin` / `bitcoin` (set `BTC_RPC_USER` and `BTC_RPC_PASSWORD` in `.env` to override).
+
+> **Production note:** in production, replace these local nodes with external RPC providers (Infura, Alchemy, QuickNode for Ethereum; a managed Bitcoin node for Bitcoin). No code change is required — both services read their endpoints from environment variables.
 
 ---
 
@@ -293,6 +388,181 @@ pytest tests/blockchain/ -v
 ```
 
 21 unit tests covering: circuit breaker state machine, multi-provider failover, health service (parallel checks, stale detection, DB-failure isolation), and API endpoints.
+
+---
+
+### DeFi Bounded Context — Foundation (`app/services/defi/`)
+
+**Epic 1 / Task 1.1 — [issues #9, #16]**
+
+Establishes the isolated `services/defi/` bounded context inside the FastAPI monorepo following the same DDD layering already adopted in `services/blockchain/ethereum/`. No DeFi logic leaks outside this context.
+
+#### Package structure
+
+```
+app/services/defi/
+├── domain/
+│   ├── entities/          # Pydantic v2 domain entities (see below)
+│   ├── value_objects/     # Frozen dataclasses (see FEATURE 1.1.3 below)
+│   ├── interfaces/        # ABCs — no concrete implementation in the domain
+│   └── exceptions.py      # DeFiError hierarchy
+├── application/
+│   └── quote_service.py   # QuoteService — orchestrates without infra dependencies
+├── infrastructure/
+│   ├── config/settings.py # DeFiSettings (DEFI_ prefix, separate from EthereumSettings)
+│   ├── cache/
+│   ├── market_data/
+│   ├── persistence/
+│   ├── workers/
+│   ├── indexer/
+│   ├── compliance/
+│   └── audit/
+└── api/
+    ├── routers/           # FastAPI router — /v1/defi/quote
+    ├── schemas/           # Pydantic v2 request/response schemas
+    └── middleware/
+```
+
+#### Domain entities (`domain/entities/`)
+
+| Class | Description |
+|-------|-------------|
+| `Token` | ERC20 token descriptor with address and chain validation |
+| `Pool` | Liquidity pool with pair addresses, fee tier, and TVL |
+| `Position` | LP or lending position tied to a wallet and pool |
+| `Protocol` | DeFi protocol descriptor (name, version, chain) |
+| `Quote` | Swap quote result (amount in/out, slippage, price impact) |
+| `WalletSession` | Non-custodial session reference — holds address only, never private key |
+| `UnsignedTransaction` | EVM transaction payload ready for client-side signing; signing fields (v/r/s) are rejected on construction |
+| `MarketIndex` | On-chain index snapshot (symbol, value, timestamp) |
+| `ResearchReport` | Impersonal research record (title, summary, price target) |
+
+All entities use Pydantic v2 validation. `WalletSession` and `UnsignedTransaction` enforce the non-custodial invariant at the model level.
+
+#### Domain interfaces (`domain/interfaces/`)
+
+| Interface | Description |
+|-----------|-------------|
+| `ITokenRepository` | Port for token lookup by address and chain |
+| `IPoolRepository` | Port for pool discovery and TVL queries |
+| `IPositionRepository` | Port for user position reads and writes |
+| `IPriceOracle` | Port for spot and historical price feeds |
+| `ISwapService` | Port for quote computation and swap execution |
+
+All interfaces are abstract base classes (`ABC`) with no concrete implementation in the domain layer.
+
+#### Domain exceptions (`domain/exceptions.py`)
+
+All exceptions inherit from `DeFiError` (the bounded-context base):
+
+`TokenNotFoundError`, `PoolNotFoundError`, `NoPoolsForPairError`, `InsufficientLiquidityError`, `SlippageExceededError`, `ProtocolNotSupportedError`, `PriceUnavailableError`, `PositionNotFoundError`.
+
+---
+
+### DeFi Value Objects — FEATURE 1.1.3 (`app/services/defi/domain/value_objects/`)
+
+**[issue #42]** — Five new immutable value objects added to the DeFi domain layer. All are `@dataclass(frozen=True)`: mutation raises `FrozenInstanceError` at runtime. Plug-and-play addition — existing value objects (`Address`, `Price`, `Slippage`, `TokenAmount`) are untouched.
+
+| Class | File | Validation |
+|-------|------|------------|
+| `TokenAddress` | `token_address.py` | EIP-55 checksum via `web3.Web3.to_checksum_address()`; requires `0x` prefix; normalises to checksummed form regardless of input case |
+| `ChainId` | `chain_id.py` | Validated against the supported set `{1, 137, 42161, 8453}`; any other value raises `ValueError` with the list of supported chains |
+| `FiatPrice` | `fiat_price.py` | `amount >= 0`; `currency` must be a 3-letter alphabetic ISO 4217 code (normalised to uppercase) |
+| `CryptoAmount` | `crypto_amount.py` | `raw >= 0`; `decimals ∈ [0, 18]`; exposes `as_decimal` property (`Decimal(raw) / 10**decimals`) |
+| `TxHash` | `tx_hash.py` | Must match `^0x[0-9a-fA-F]{64}$`; stored lowercased |
+
+**Supported chains for `ChainId`:**
+
+| Chain ID | Network |
+|----------|---------|
+| 1 | Ethereum Mainnet |
+| 137 | Polygon |
+| 42161 | Arbitrum One |
+| 8453 | Base |
+
+**Usage example:**
+
+```python
+from app.services.defi.domain.value_objects import (
+    TokenAddress, ChainId, FiatPrice, CryptoAmount, TxHash
+)
+from decimal import Decimal
+
+# TokenAddress — normalises to EIP-55 checksum
+addr = TokenAddress("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
+# addr.value == "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+
+# ChainId — rejects unsupported networks
+chain = ChainId(137)   # Polygon — OK
+# ChainId(56)          # raises ValueError: Unsupported chain_id 56
+
+# FiatPrice — ISO 4217 currency
+price = FiatPrice(amount=Decimal("3500.00"), currency="usd")
+# price.currency == "USD"
+
+# CryptoAmount — smallest-unit representation
+one_eth = CryptoAmount(raw=10**18, decimals=18)
+# one_eth.as_decimal == Decimal("1")
+
+# TxHash — 32-byte transaction identifier
+tx = TxHash("0x" + "ab" * 32)
+# tx.value is lowercased
+
+# Immutability guaranteed
+from dataclasses import FrozenInstanceError
+try:
+    addr.value = "0x..."   # raises FrozenInstanceError
+except FrozenInstanceError:
+    pass
+```
+
+#### Running the value objects tests
+
+```bash
+pytest tests/defi/domain/test_value_objects.py -v
+```
+
+70 unit tests covering: valid construction, EIP-55 normalisation, chain ID rejection, currency normalisation, `FrozenInstanceError` on mutation, and all invalid-input edge cases.
+
+---
+
+### DeFi Settings — FEATURE 1.3.1 (`app/services/defi/infrastructure/config/settings.py`)
+
+**[issue #49]** — `DeFiSettings` extended with all platform-level configuration fields required to operate the DeFi bounded context. All fields have safe defaults — the service starts and serves requests without any environment variable defined.
+
+`DeFiSettings` uses `pydantic-settings` with `env_prefix="DEFI_"`. Every field maps to a `DEFI_<FIELD_NAME>` environment variable.
+
+#### Configuration reference
+
+| Field | Env variable | Default | Type |
+|-------|-------------|---------|------|
+| `redis_url` | `DEFI_REDIS_URL` | `redis://localhost:6379/0` | `str` |
+| `quote_cache_ttl_seconds` | `DEFI_QUOTE_CACHE_TTL_SECONDS` | `30` | `int` |
+| `history_cache_ttl_seconds` | `DEFI_HISTORY_CACHE_TTL_SECONDS` | `300` | `int` |
+| `market_data_timeout_seconds` | `DEFI_MARKET_DATA_TIMEOUT_SECONDS` | `10` | `int` |
+| `max_symbols_per_batch` | `DEFI_MAX_SYMBOLS_PER_BATCH` | `100` | `int` |
+| `coingecko_api_key` | `DEFI_COINGECKO_API_KEY` | `None` | `SecretStr` |
+| `cmc_api_key` | `DEFI_CMC_API_KEY` | `None` | `SecretStr` |
+| `ofac_api_key` | `DEFI_OFAC_API_KEY` | `None` | `SecretStr` |
+
+#### API key security model
+
+- API keys (`coingecko_api_key`, `cmc_api_key`, `ofac_api_key`) are declared as `Optional[SecretStr]`.
+- Pydantic masks their values as `SecretStr('**********')` in any `repr()`, `str()`, or log output — no custom code required.
+- Keys belong to the **platform operator**, not to end users. A single set of keys serves the entire subscriber base transparently.
+- Keys are optional: the service starts without them (free-tier or mock fallback). Set them only in production via a secrets manager or CI/CD secret injection — never in source-controlled files.
+
+#### Setting non-secret configuration in production
+
+```bash
+DEFI_REDIS_URL=redis://your-redis-host:6379/0
+DEFI_QUOTE_CACHE_TTL_SECONDS=30
+DEFI_HISTORY_CACHE_TTL_SECONDS=300
+DEFI_MARKET_DATA_TIMEOUT_SECONDS=10
+DEFI_MAX_SYMBOLS_PER_BATCH=100
+```
+
+Secret keys must be injected at deploy time via environment secrets — never committed to `.env` files in source control. See `.env.example` for the variable names.
 
 ---
 
@@ -467,29 +737,124 @@ Cada serviço segue **arquitetura hexagonal**: núcleo de domínio isolado de ad
 
 ## Desenvolvimento local
 
+### Pré-requisitos
+
+| Ferramenta | Versão mínima |
+|------------|--------------|
+| Python | 3.12 |
+| Docker | 24+ |
+| Docker Compose | v2 (embutido no Docker Desktop ou plugin `docker compose`) |
+
+---
+
+### 1. Variáveis de ambiente
+
+Copie o arquivo de exemplo e ajuste os valores que precisar:
+
 ```bash
-# Requisitos: Python 3.12, Docker, docker compose
+cp .env.example .env
+```
 
-# 1. Subir infraestrutura (Postgres, Redis, nó de chain local ou mock)
+Os defaults do `.env.example` funcionam localmente sem alteração. **Não versione o arquivo `.env`.**
+
+---
+
+### 2. Subir a infraestrutura
+
+```bash
 docker compose up -d
+```
 
-# 2. Criar e ativar ambiente virtual
-python3.12 -m venv .venv && source .venv/bin/activate
+Quatro serviços sobem:
 
-# 3. Instalar dependências
+| Container | Imagem | Porta(s) | Finalidade |
+|-----------|--------|---------|-----------|
+| `postgres` | `postgres:16-alpine` | `5432` | Banco principal (dois bancos criados no primeiro boot) |
+| `redis` | `redis:7-alpine` | `6379` | Cache — cotações e dados de mercado DeFi |
+| `eth-node` | `ethereum/client-go:stable` | `8545` | Nó Ethereum local (Geth `--dev`, chain-id 1337, blocos de 2 s) |
+| `bitcoind` | `ruimarinho/bitcoin-core` | `18443` (RPC) / `18444` (P2P) | Nó Bitcoin local (modo regtest) |
+
+Verifique que todos estão healthy antes de continuar:
+
+```bash
+docker compose ps
+```
+
+---
+
+### 3. Inicialização do banco de dados (primeiro boot)
+
+No primeiro `docker compose up`, o PostgreSQL executa automaticamente o script `scripts/docker-init/00_init.sh` via mecanismo `docker-entrypoint-initdb.d`. Esse script:
+
+- Cria o banco `cryptobank` (serviço DeFi).
+- Aplica `migrations/ethereum/001_create_eth_providers.sql` no banco `fastchainbank`.
+- Aplica `migrations/defi/001_create_platform_secrets.sql` no banco `cryptobank`.
+
+**Isso só acontece quando o volume `postgres_data` está vazio.** Se o volume já contiver dados (ex.: num segundo `docker compose up`), o PostgreSQL pula os scripts de init.
+
+#### Verificar se os bancos existem
+
+```bash
+docker compose exec postgres psql -U postgres -c "\l"
+```
+
+Você deve ver `fastchainbank` e `cryptobank` na listagem.
+
+#### Rodar o script de init manualmente (se os bancos estiverem ausentes)
+
+Se o volume já tinha dados e os bancos não foram criados, execute o script dentro do container:
+
+```bash
+docker compose exec postgres bash /docker-entrypoint-initdb.d/00_init.sh
+```
+
+> **Importante:** nunca execute `scripts/docker-init/00_init.sh` diretamente no host. Ele usa o socket Unix do PostgreSQL (`/var/run/postgresql/.s.PGSQL.5432`), que só existe dentro do container.
+
+#### Reset completo (destrói todos os dados locais)
+
+Para começar do zero — bancos vazios, estado de chain zerado:
+
+```bash
+docker compose down -v   # remove os volumes — todos os dados são perdidos
+docker compose up -d     # recria tudo do zero
+```
+
+---
+
+### 4. Ambiente Python
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+```
 
-# 4. Executar migrações de banco de dados
-alembic upgrade head
+---
 
-# 5. Iniciar um serviço (exemplo: serviço Ethereum blockchain)
-uvicorn services.blockchain.ethereum:app --reload --port 8001
+### 5. Iniciar um serviço
 
-# 6. Iniciar o gerador de smart contracts
+```bash
+# Serviço blockchain Ethereum
+uvicorn app.services.blockchain.ethereum.main:app --reload --port 8001
+
+# Gerador de smart contracts
 uvicorn app.main:app --reload --port 8000
 ```
 
 Docs interativos da API: `http://localhost:<porta>/docs`
+
+---
+
+### Endpoints dos nós locais
+
+| Nó | URL (host) | URL (rede Docker) |
+|----|------------|-------------------|
+| Ethereum (Geth dev) | `http://localhost:8545` | `http://eth-node:8545` |
+| Bitcoin Core (regtest RPC) | `http://localhost:18443` | `http://bitcoind:18443` |
+
+As credenciais RPC do Bitcoin são `bitcoin` / `bitcoin` por padrão (configure `BTC_RPC_USER` e `BTC_RPC_PASSWORD` no `.env` para alterar).
+
+> **Nota de produção:** em produção, substitua os nós locais por provedores externos (Infura, Alchemy, QuickNode para Ethereum; nó Bitcoin gerenciado para Bitcoin). Nenhuma alteração de código é necessária — ambos os serviços leem seus endpoints de variáveis de ambiente.
 
 ---
 
@@ -582,6 +947,46 @@ pytest tests/blockchain/ -v
 ```
 
 21 testes unitários cobrindo: máquina de estados do circuit breaker, failover multi-provider, health service (verificações em paralelo, detecção de stale, isolamento de falha de DB) e endpoints de API.
+
+---
+
+### Configurações DeFi — FEATURE 1.3.1 (`app/services/defi/infrastructure/config/settings.py`)
+
+**[issue #49]** — `DeFiSettings` expandida com todos os campos de configuração de plataforma necessários para operar o contexto DeFi. Todos os campos têm defaults seguros — o serviço sobe e atende requisições sem nenhuma variável de ambiente definida.
+
+`DeFiSettings` usa `pydantic-settings` com `env_prefix="DEFI_"`. Cada campo corresponde a uma variável de ambiente `DEFI_<NOME_DO_CAMPO>`.
+
+#### Referência de configuração
+
+| Campo | Variável de ambiente | Default | Tipo |
+|-------|---------------------|---------|------|
+| `redis_url` | `DEFI_REDIS_URL` | `redis://localhost:6379/0` | `str` |
+| `quote_cache_ttl_seconds` | `DEFI_QUOTE_CACHE_TTL_SECONDS` | `30` | `int` |
+| `history_cache_ttl_seconds` | `DEFI_HISTORY_CACHE_TTL_SECONDS` | `300` | `int` |
+| `market_data_timeout_seconds` | `DEFI_MARKET_DATA_TIMEOUT_SECONDS` | `10` | `int` |
+| `max_symbols_per_batch` | `DEFI_MAX_SYMBOLS_PER_BATCH` | `100` | `int` |
+| `coingecko_api_key` | `DEFI_COINGECKO_API_KEY` | `None` | `SecretStr` |
+| `cmc_api_key` | `DEFI_CMC_API_KEY` | `None` | `SecretStr` |
+| `ofac_api_key` | `DEFI_OFAC_API_KEY` | `None` | `SecretStr` |
+
+#### Modelo de segurança das chaves de API
+
+- As chaves de API (`coingecko_api_key`, `cmc_api_key`, `ofac_api_key`) são declaradas como `Optional[SecretStr]`.
+- O Pydantic mascara seus valores como `SecretStr('**********')` em qualquer `repr()`, `str()` ou saída de log — sem código customizado.
+- As chaves pertencem ao **operador da plataforma**, não aos usuários finais. Um único conjunto de chaves atende toda a base de assinantes de forma transparente.
+- As chaves são opcionais: o serviço sobe sem elas (free-tier ou fallback mock). Defina-as em produção apenas via secrets manager ou injeção de segredos no CI/CD — nunca em arquivos `.env` versionados.
+
+#### Configuração dos campos não-secretos em produção
+
+```bash
+DEFI_REDIS_URL=redis://seu-redis:6379/0
+DEFI_QUOTE_CACHE_TTL_SECONDS=30
+DEFI_HISTORY_CACHE_TTL_SECONDS=300
+DEFI_MARKET_DATA_TIMEOUT_SECONDS=10
+DEFI_MAX_SYMBOLS_PER_BATCH=100
+```
+
+As chaves secretas devem ser injetadas em tempo de deploy via secrets de ambiente — nunca commitadas em arquivos `.env` no controle de versão. Consulte `.env.example` para os nomes das variáveis.
 
 ---
 

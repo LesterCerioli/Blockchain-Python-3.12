@@ -1,4 +1,11 @@
 services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16
+  # Creates two databases on first boot via scripts/docker-init/00_init.sh:
+  #   - fastchainbank  (Ethereum service)
+  #   - cryptobank     (DeFi service)
+  # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -10,11 +17,106 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/docker-init:/docker-entrypoint-initdb.d:ro
+      - ./migrations:/migrations:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-fastchainbank}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - blockchain-net
+
+  # ---------------------------------------------------------------------------
+  # Redis 7
+  # Used by the DeFi service for quote/history caching.
+  #   DB 0  →  DEFI_REDIS_URL  (generic cache)
+  #   DB 1  →  DEFI_CACHE_URL  (specific cache)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --loglevel notice
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - blockchain-net
+
+  # ---------------------------------------------------------------------------
+  # Geth (go-ethereum) — local Ethereum node in dev mode
+  # chain-id 1337 (Geth dev default), block-time 2 s
+  # HTTP-RPC: http://localhost:8545 (host) | http://eth-node:8545 (Docker)
+  # ---------------------------------------------------------------------------
+  eth-node:
+    image: ethereum/client-go:stable
+    restart: unless-stopped
+    command: >
+      --dev
+      --dev.period 2
+      --http
+      --http.addr 0.0.0.0
+      --http.port 8545
+      --http.api eth,net,web3,debug,txpool
+      --http.corsdomain *
+      --http.vhosts *
+    ports:
+      - "8545:8545"
+    volumes:
+      - eth_data:/root/.ethereum
+    healthcheck:
+      test: ["CMD-SHELL", "geth attach --exec eth.blockNumber http://localhost:8545 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - blockchain-net
+
+  # ---------------------------------------------------------------------------
+  # Bitcoin Core — local Bitcoin node (regtest)
+  # Serves BTC_RPC_URL default: http://localhost:18443
+  #                              http://bitcoind:18443 (inside Docker)
+  # RPC credentials controlled by BTC_RPC_USER / BTC_RPC_PASSWORD env vars.
+  # ---------------------------------------------------------------------------
+  bitcoind:
+    image: ruimarinho/bitcoin-core:latest
+    restart: unless-stopped
+    command: >
+      -regtest=1
+      -rpcallowip=0.0.0.0/0
+      -rpcbind=0.0.0.0
+      -rpcport=18443
+      -port=18444
+      -rpcuser=${BTC_RPC_USER:-bitcoin}
+      -rpcpassword=${BTC_RPC_PASSWORD:-bitcoin}
+      -txindex=1
+      -fallbackfee=0.0001
+      -printtoconsole=1
+    ports:
+      - "18443:18443"
+      - "18444:18444"
+    volumes:
+      - bitcoin_data:/home/bitcoin/.bitcoin
+    healthcheck:
+      test: ["CMD-SHELL", "bitcoin-cli -regtest -rpcuser=${BTC_RPC_USER:-bitcoin} -rpcpassword=${BTC_RPC_PASSWORD:-bitcoin} getblockchaininfo > /dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - blockchain-net
 
 volumes:
   postgres_data:
+  redis_data:
+  eth_data:
+  bitcoin_data:
+
+networks:
+  blockchain-net:
+    driver: bridge
