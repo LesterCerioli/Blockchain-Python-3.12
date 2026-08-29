@@ -78,6 +78,9 @@ class IndexerLagError(DeFiError):
         self.lag_seconds = lag_seconds
 
 
+    def __init__(self, message: str = "") -> None:
+        super().__init__(message)
+
 
 class TokenNotFoundError(DeFiError):
     def __init__(self, address: str, chain_id: int) -> None:

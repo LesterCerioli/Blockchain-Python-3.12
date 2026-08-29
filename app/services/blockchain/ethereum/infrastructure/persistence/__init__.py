@@ -4,9 +4,9 @@ from .models import Base, EthProviderModel
 from .provider_repository import PostgresProviderRepository
 
 __all__ = [
-    "Database",
-    "InMemoryProviderRepository",
     "Base",
+    "Database",
     "EthProviderModel",
+    "InMemoryProviderRepository",
     "PostgresProviderRepository",
 ]

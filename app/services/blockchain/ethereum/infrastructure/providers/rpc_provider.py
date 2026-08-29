@@ -1,11 +1,11 @@
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
-from .base_provider import BaseProvider, ProviderConfig
 from ..rpc.eth_rpc_client import EthRpcClient
+from .base_provider import BaseProvider, ProviderConfig
 
 
 class RpcProvider(BaseProvider):
-    
     def __init__(self, config: ProviderConfig) -> None:
         super().__init__(config)
         self._client = EthRpcClient(config.url, config.request_timeout)

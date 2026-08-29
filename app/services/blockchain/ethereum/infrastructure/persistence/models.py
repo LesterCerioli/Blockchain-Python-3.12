@@ -11,7 +11,6 @@ class Base(DeclarativeBase):
 
 
 class EthProviderModel(Base):
-    
     __tablename__ = "eth_providers"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -19,7 +18,9 @@ class EthProviderModel(Base):
         primary_key=True,
         server_default=text("gen_random_uuid()"),
     )
-    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(
+        String(100), unique=True, nullable=False, index=True
+    )
     url: Mapped[str] = mapped_column(String(500), nullable=False)
     priority: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="unknown")

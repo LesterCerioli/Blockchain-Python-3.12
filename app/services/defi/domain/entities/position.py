@@ -7,7 +7,6 @@ from .pool import Pool
 
 
 class Position(BaseModel):
-    
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     pool: Pool
     owner: str

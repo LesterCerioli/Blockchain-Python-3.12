@@ -10,9 +10,13 @@ class EthereumSettings(BaseSettings):
     or a .env file (network/chain config lives here, not in code).
     """
 
-    model_config = SettingsConfigDict(env_prefix="ETH_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_prefix="ETH_", env_file=".env", extra="ignore"
+    )
 
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/fastchainbank"
+    database_url: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/fastchainbank"
+    )
     stale_block_threshold_seconds: int = 60
     providers: list[dict[str, Any]] = Field(
         default=[

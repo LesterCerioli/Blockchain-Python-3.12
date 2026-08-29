@@ -1,12 +1,14 @@
-import sys
 import os
-from unittest.mock import AsyncMock, MagicMock, patch
+import sys
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from app.services.blockchain.ethereum.infrastructure.providers.multi_provider import MultiProvider
+from app.services.blockchain.ethereum.infrastructure.providers.multi_provider import (
+    MultiProvider,
+)
 
 
 def _make_provider(name: str, priority: int, block_number: int | None):

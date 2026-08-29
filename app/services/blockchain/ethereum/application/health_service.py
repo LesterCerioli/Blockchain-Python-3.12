@@ -1,7 +1,6 @@
 import asyncio
 import time
 from datetime import datetime, timezone
-from typing import Optional
 
 from ..domain.entities.provider import ProviderRecord, ProviderStatus
 from ..domain.interfaces.chain_adapter import IChainAdapter
@@ -11,7 +10,6 @@ from ..infrastructure.providers.base_provider import BaseProvider
 
 
 class HealthService(IHealthMonitor):
-    
     def __init__(
         self,
         chain_adapter: IChainAdapter,
@@ -28,10 +26,10 @@ class HealthService(IHealthMonitor):
         tasks = [self._check_one(provider) for provider in self._providers]
         return await asyncio.gather(*tasks)
 
-    async def get_current_block_height(self) -> Optional[int]:
+    async def get_current_block_height(self) -> int | None:
         try:
             return await self._chain_adapter.get_block_number()
-        except Exception:
+        except Exception:  # noqa: BLE001 - health check must not crash on provider failure
             return None
 
     async def _check_one(self, provider: BaseProvider) -> ProviderHealth:
@@ -60,7 +58,7 @@ class HealthService(IHealthMonitor):
                 last_error=None,
                 is_stale=is_stale,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - any provider error marks as unhealthy
             latency_ms = (time.monotonic() - start) * 1000
             await self._safe_upsert(
                 ProviderRecord(
@@ -84,18 +82,23 @@ class HealthService(IHealthMonitor):
     async def _is_stale(self, provider_name: str, current_block: int) -> bool:
         try:
             record = await self._repository.get_by_name(provider_name)
-        except Exception:
+        except Exception:  # noqa: BLE001 - DB failure should not mark as stale
             return False
-        if record is None or record.last_seen_block is None or record.last_checked_at is None:
+        if (
+            record is None
+            or record.last_seen_block is None
+            or record.last_checked_at is None
+        ):
             return False
         elapsed = (
             datetime.now(tz=timezone.utc) - record.last_checked_at
         ).total_seconds()
-        return elapsed > self._stale_threshold and record.last_seen_block == current_block
+        return (
+            elapsed > self._stale_threshold and record.last_seen_block == current_block
+        )
 
     async def _safe_upsert(self, record: ProviderRecord) -> None:
         try:
             await self._repository.upsert(record)
-        except Exception:
-            
+        except Exception:  # noqa: BLE001, S110 - DB failure isolation, health check must continue
             pass

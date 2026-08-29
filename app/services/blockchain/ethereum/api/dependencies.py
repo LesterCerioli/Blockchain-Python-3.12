@@ -1,7 +1,5 @@
 from fastapi import Request
 
-from ..application.health_service import HealthService
-from ..application.network_service import NetworkService
 from ..domain.interfaces.health_monitor import IHealthMonitor
 from ..domain.interfaces.network_service import INetworkService
 

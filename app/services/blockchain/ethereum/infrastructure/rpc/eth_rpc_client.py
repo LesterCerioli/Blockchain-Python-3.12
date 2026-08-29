@@ -1,10 +1,9 @@
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 
 
 class EthRpcClient:
-    
     def __init__(self, url: str, timeout_seconds: float = 10.0) -> None:
         self._url = url
         self._http = httpx.AsyncClient(
@@ -19,7 +18,7 @@ class EthRpcClient:
     async def close(self) -> None:
         await self._http.aclose()
 
-    async def call(self, method: str, params: Optional[list] = None) -> Any:
+    async def call(self, method: str, params: list | None = None) -> Any:
         payload = {
             "jsonrpc": "2.0",
             "method": method,
@@ -43,5 +42,5 @@ class EthRpcClient:
 
     async def eth_syncing(self) -> bool:
         result = await self.call("eth_syncing")
-        
+
         return result is not False

@@ -2,7 +2,6 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class Token(BaseModel):
-    
     address: str
     symbol: str
     name: str

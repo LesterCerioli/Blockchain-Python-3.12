@@ -1,16 +1,14 @@
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Optional
 
 
 class CircuitState(str, Enum):
-    CLOSED = "closed"       # normal operation
-    OPEN = "open"           # rejecting all requests
-    HALF_OPEN = "half_open" # probing for recovery
+    CLOSED = "closed"  # normal operation
+    OPEN = "open"  # rejecting all requests
+    HALF_OPEN = "half_open"  # probing for recovery
 
 
 class CircuitBreaker:
-    
     def __init__(
         self,
         name: str,
@@ -22,7 +20,7 @@ class CircuitBreaker:
         self._recovery_timeout = timedelta(seconds=recovery_timeout_seconds)
         self._state = CircuitState.CLOSED
         self._failure_count = 0
-        self._last_failure_time: Optional[datetime] = None
+        self._last_failure_time: datetime | None = None
 
     @property
     def state(self) -> CircuitState:
@@ -30,7 +28,8 @@ class CircuitBreaker:
         if (
             self._state == CircuitState.OPEN
             and self._last_failure_time is not None
-            and datetime.now(tz=timezone.utc) > self._last_failure_time + self._recovery_timeout
+            and datetime.now(tz=timezone.utc)
+            > self._last_failure_time + self._recovery_timeout
         ):
             self._state = CircuitState.HALF_OPEN
         return self._state

@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..dependencies import get_quote_service
-from ..schemas.quote import QuoteRequest, QuoteResponse
-from ...application.quote_service import SwapQuoteService
+from ...application.quote_service import QuoteService
 from ...domain.exceptions import (
     DeFiError,
     NoPoolsForPairError,
@@ -10,6 +8,8 @@ from ...domain.exceptions import (
     TokenNotFoundError,
 )
 from ...domain.value_objects.slippage import Slippage
+from ..dependencies import get_quote_service
+from ..schemas.quote import QuoteRequest, QuoteResponse
 
 router = APIRouter(prefix="/v1/defi", tags=["defi"])
 
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/v1/defi", tags=["defi"])
 )
 async def get_quote(
     body: QuoteRequest,
-    quote_service: SwapQuoteService = Depends(get_quote_service),
+    quote_service: QuoteService = Depends(get_quote_service),  # noqa: B008
 ) -> QuoteResponse:
     try:
         result = await quote_service.get_quote(
@@ -37,6 +37,10 @@ async def get_quote(
     except NoPoolsForPairError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except SlippageExceededError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
     except DeFiError as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
