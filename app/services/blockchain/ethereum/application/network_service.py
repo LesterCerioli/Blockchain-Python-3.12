@@ -4,7 +4,6 @@ from ..domain.interfaces.network_service import INetworkService, NetworkInfo
 
 
 class NetworkService(INetworkService):
-    
     def __init__(self, chain_adapter: IChainAdapter) -> None:
         self._chain_adapter = chain_adapter
 

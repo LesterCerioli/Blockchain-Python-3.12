@@ -10,7 +10,6 @@ class BlockInfo:
 
 
 class IChainAdapter(ABC):
-    
     @abstractmethod
     async def get_block_number(self) -> int: ...
 

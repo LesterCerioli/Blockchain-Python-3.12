@@ -13,7 +13,6 @@ class ProtocolName(str, Enum):
 
 
 class Protocol(BaseModel):
-    
     name: ProtocolName
     chain_id: int = Field(gt=0)
     router_address: str

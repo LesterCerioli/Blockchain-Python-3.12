@@ -4,7 +4,6 @@ from decimal import Decimal
 
 @dataclass(frozen=True)
 class Price:
-    
     value: Decimal
     base_token_address: str
     quote_token_address: str

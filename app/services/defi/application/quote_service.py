@@ -14,7 +14,6 @@ from ..domain.value_objects.token_amount import TokenAmount
 
 
 class QuoteService:
-    
     def __init__(
         self,
         token_repository: ITokenRepository,
@@ -43,7 +42,9 @@ class QuoteService:
         if token_out is None:
             raise TokenNotFoundError(token_out_address, chain_id)
 
-        pools = await self._pools.list_by_tokens(token_in_address, token_out_address, chain_id)
+        pools = await self._pools.list_by_tokens(
+            token_in_address, token_out_address, chain_id
+        )
         if not pools:
             raise NoPoolsForPairError(token_in_address, token_out_address, chain_id)
 
@@ -63,10 +64,12 @@ class QuoteService:
         actual_bps = int(
             Decimal(str(price_impact))
             .scaleb(4)
-            .quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+            .quantize(Decimal(1), rounding=ROUND_HALF_UP)
         )
         if actual_bps > slippage.bps:
-            raise SlippageExceededError(expected_bps=slippage.bps, actual_bps=actual_bps)
+            raise SlippageExceededError(
+                expected_bps=slippage.bps, actual_bps=actual_bps
+            )
 
         return {
             "token_in": token_in_address,
@@ -86,7 +89,9 @@ class QuoteService:
         amount_out: TokenAmount,
         chain_id: int,
     ) -> Decimal:
-        spot = await self._oracle.get_price(token_in_address, token_out_address, chain_id)
+        spot = await self._oracle.get_price(
+            token_in_address, token_out_address, chain_id
+        )
         if spot is None or spot.value == 0:
             return Decimal(0)
         expected_out = amount_in.as_decimal * spot.value

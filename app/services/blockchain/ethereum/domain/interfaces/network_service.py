@@ -10,6 +10,5 @@ class NetworkInfo:
 
 
 class INetworkService(ABC):
-    
     @abstractmethod
     async def get_network_info(self) -> NetworkInfo: ...

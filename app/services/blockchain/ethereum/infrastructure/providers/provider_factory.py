@@ -5,7 +5,6 @@ from .rpc_provider import RpcProvider
 
 
 class ProviderFactory:
-    
     @staticmethod
     def create_from_config(providers_config: list[dict[str, Any]]) -> list[RpcProvider]:
         providers = []

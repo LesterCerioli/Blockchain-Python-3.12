@@ -2,7 +2,6 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 
 class ProviderStatus(str, Enum):
@@ -18,6 +17,6 @@ class ProviderRecord:
     url: str
     priority: int
     status: ProviderStatus = ProviderStatus.UNKNOWN
-    last_seen_block: Optional[int] = None
-    last_checked_at: Optional[datetime] = None
-    id: Optional[uuid.UUID] = None
+    last_seen_block: int | None = None
+    last_checked_at: datetime | None = None
+    id: uuid.UUID | None = None

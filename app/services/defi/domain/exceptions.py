@@ -1,6 +1,9 @@
 class DeFiError(Exception):
     """Base exception for all DeFi bounded-context errors."""
 
+    def __init__(self, message: str = "") -> None:
+        super().__init__(message)
+
 
 class TokenNotFoundError(DeFiError):
     def __init__(self, address: str, chain_id: int) -> None:

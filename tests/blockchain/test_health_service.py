@@ -1,15 +1,17 @@
-import sys
 import os
+import sys
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import pytest_asyncio
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
 from app.services.blockchain.ethereum.application.health_service import HealthService
-from app.services.blockchain.ethereum.domain.entities.provider import ProviderRecord, ProviderStatus
+from app.services.blockchain.ethereum.domain.entities.provider import (
+    ProviderRecord,
+    ProviderStatus,
+)
 from app.services.blockchain.ethereum.infrastructure.persistence.in_memory_provider_repository import (
     InMemoryProviderRepository,
 )
@@ -32,7 +34,9 @@ def _make_chain_adapter(block_number: int | None = 20_000_000):
     if block_number is not None:
         adapter.get_block_number = AsyncMock(return_value=block_number)
     else:
-        adapter.get_block_number = AsyncMock(side_effect=RuntimeError("all providers down"))
+        adapter.get_block_number = AsyncMock(
+            side_effect=RuntimeError("all providers down")
+        )
     return adapter
 
 

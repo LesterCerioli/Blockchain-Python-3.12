@@ -1,14 +1,12 @@
 import uuid
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from ..entities.position import Position
 
 
 class IPositionRepository(ABC):
-    
     @abstractmethod
-    async def get_by_id(self, position_id: uuid.UUID) -> Optional[Position]: ...
+    async def get_by_id(self, position_id: uuid.UUID) -> Position | None: ...
 
     @abstractmethod
     async def list_by_owner(self, owner: str, chain_id: int) -> list[Position]: ...

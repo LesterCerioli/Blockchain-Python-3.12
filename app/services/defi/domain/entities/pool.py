@@ -4,7 +4,6 @@ from .token import Token
 
 
 class Pool(BaseModel):
-    
     address: str
     token0: Token
     token1: Token

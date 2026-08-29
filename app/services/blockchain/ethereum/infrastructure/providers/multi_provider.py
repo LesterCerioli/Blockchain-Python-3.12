@@ -1,12 +1,11 @@
-from typing import Any, Callable, Coroutine
+from typing import Any
 
 from .base_provider import BaseProvider
 
 
 class MultiProvider:
-    
     def __init__(self, providers: list[BaseProvider]) -> None:
-        
+
         self._providers = sorted(providers, key=lambda p: p.priority)
 
     @property
@@ -24,13 +23,15 @@ class MultiProvider:
     ) -> Any:
         available = self._available()
         if not available:
-            raise RuntimeError("No Ethereum providers available (all circuit-breakers open)")
+            raise RuntimeError(
+                "No Ethereum providers available (all circuit-breakers open)"
+            )
 
         last_exc: Exception = RuntimeError("No providers tried")
         for provider in available:
             try:
                 return await getattr(provider, method)(*args, **kwargs)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - failover must catch any provider error
                 last_exc = exc
                 continue
 

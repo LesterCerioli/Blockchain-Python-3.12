@@ -1,14 +1,13 @@
-import unittest
 import os
 import sys
+import unittest
 
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.contract_generator import ERC20ContractGenerator
 
-class TestERC20ContractGenerator(unittest.TestCase):
 
+class TestERC20ContractGenerator(unittest.TestCase):
     def setUp(self):
         self.generator = ERC20ContractGenerator()
 
@@ -28,16 +27,21 @@ class TestERC20ContractGenerator(unittest.TestCase):
         self.assertIn(f"totalSupply = {expected_adjusted_supply};", code)
         self.assertIn(f"balanceOf[msg.sender] = {expected_adjusted_supply};", code)
 
-        # Check for essential function signatures
-        self.assertIn("function name()", code)
-        self.assertIn("function symbol()", code)
-        self.assertIn("function decimals()", code)
-        self.assertIn("function totalSupply()", code)
-        self.assertIn("function balanceOf(address", code)
+        # Check for essential public state and function signatures
+        # Solidity public variables generate getters (name(), symbol(), etc.)
+        self.assertIn("string public name", code)
+        self.assertIn("string public symbol", code)
+        self.assertIn("uint8 public decimals", code)
+        self.assertIn("uint256 public totalSupply", code)
+        self.assertIn("mapping(address => uint256) public balanceOf", code)
+        self.assertIn(
+            "mapping(address => mapping(address => uint256)) public allowance", code
+        )
         self.assertIn("function transfer(address to, uint256 value)", code)
         self.assertIn("function approve(address spender, uint256 value)", code)
-        self.assertIn("function allowance(address owner, address spender)", code) # allowance is public mapping
-        self.assertIn("function transferFrom(address from, address to, uint256 value)", code)
+        self.assertIn(
+            "function transferFrom(address from, address to, uint256 value)", code
+        )
 
     def test_generate_contract_different_decimals(self):
         name = "MyCoin"
@@ -54,5 +58,6 @@ class TestERC20ContractGenerator(unittest.TestCase):
         self.assertIn(f"totalSupply = {expected_adjusted_supply};", code)
         self.assertIn(f"balanceOf[msg.sender] = {expected_adjusted_supply};", code)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
