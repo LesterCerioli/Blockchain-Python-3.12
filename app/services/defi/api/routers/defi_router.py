@@ -1,14 +1,19 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ...application.quote_service import QuoteService
 from ...domain.exceptions import (
     DeFiError,
+    InvalidOHLCVIntervalError,
     NoPoolsForPairError,
+    OHLCVRangeExceededError,
     SlippageExceededError,
     TokenNotFoundError,
 )
 from ...domain.value_objects.slippage import Slippage
 from ..dependencies import get_quote_service
+from ..schemas.ohlcv import OHLCVCandle, OHLCVResponse
 from ..schemas.quote import QuoteRequest, QuoteResponse
 
 router = APIRouter(prefix="/v1/defi", tags=["defi"])
@@ -39,6 +44,56 @@ async def get_quote(
     except SlippageExceededError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+    except DeFiError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@router.get(
+    "/quotes/{symbol}/history",
+    response_model=OHLCVResponse,
+    summary="Get OHLCV history for a token symbol",
+)
+async def get_ohlcv_history(
+    symbol: str,
+    interval: str = Query(...),
+    from_ts: datetime = Query(...),  # noqa: B008
+    to_ts: datetime = Query(...),  # noqa: B008
+    quote_service: QuoteService = Depends(get_quote_service),  # noqa: B008
+) -> OHLCVResponse:
+    try:
+        candles = await quote_service.get_ohlcv(
+            symbol=symbol,
+            interval=interval,
+            from_ts=from_ts,
+            to_ts=to_ts,
+        )
+        return OHLCVResponse(
+            symbol=symbol,
+            interval=interval,
+            candles=[
+                OHLCVCandle(
+                    open_time=c.open_time.isoformat(),
+                    open=str(c.open),
+                    high=str(c.high),
+                    low=str(c.low),
+                    close=str(c.close),
+                    volume=str(c.volume),
+                )
+                for c in candles
+            ],
+        )
+    except InvalidOHLCVIntervalError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        )
+    except OHLCVRangeExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
         )
     except DeFiError as exc:
         raise HTTPException(

@@ -1,16 +1,12 @@
-from .common import ErrorResponse, HealthResponse, HealthStatus, PaginatedResponse
+from .ohlcv import OHLCVCandle, OHLCVResponse
 from .pool import PoolResponse
-from .quote import CandleResponse, MarketQuoteResponse, OHLCVResponse, QuoteRequest, QuoteResponse
+from .quote import QuoteRequest, QuoteResponse
 from .token import TokenResponse
 
 __all__ = [
-    "CandleResponse",
-    "ErrorResponse",
-    "HealthResponse",
-    "HealthStatus",
+    "OHLCVCandle",
     "OHLCVResponse",
-    "PaginatedResponse",
-    "MarketQuoteResponse",
+    "PoolResponse",
     "QuoteRequest",
     "QuoteResponse",
     "TokenResponse",
