@@ -5,6 +5,18 @@ class DeFiError(Exception):
         super().__init__(message)
 
 
+class InvalidOHLCVIntervalError(DeFiError):
+    def __init__(self, interval: str) -> None:
+        super().__init__(f"Invalid OHLCV interval: {interval}")
+        self.interval = interval
+
+
+class OHLCVRangeExceededError(DeFiError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
 class TokenNotFoundError(DeFiError):
     def __init__(self, address: str, chain_id: int) -> None:
         super().__init__(f"Token not found: address={address} chain_id={chain_id}")

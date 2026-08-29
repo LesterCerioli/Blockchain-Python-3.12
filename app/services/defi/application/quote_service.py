@@ -1,16 +1,24 @@
+from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from ..domain.exceptions import (
+    InvalidOHLCVIntervalError,
     NoPoolsForPairError,
+    OHLCVRangeExceededError,
     SlippageExceededError,
     TokenNotFoundError,
 )
+from ..domain.interfaces.ohlcv_repository import IOHLCVRepository
 from ..domain.interfaces.pool_repository import IPoolRepository
 from ..domain.interfaces.price_oracle import IPriceOracle
 from ..domain.interfaces.swap_service import ISwapService
 from ..domain.interfaces.token_repository import ITokenRepository
+from ..domain.value_objects.ohlcv import OHLCVCandle
 from ..domain.value_objects.slippage import Slippage
 from ..domain.value_objects.token_amount import TokenAmount
+
+VALID_OHLCV_INTERVALS = frozenset(["1m", "5m", "15m", "1h", "4h", "1d", "1w"])
+MAX_OHLCV_RANGE_DAYS = 365
 
 
 class QuoteService:
@@ -20,11 +28,27 @@ class QuoteService:
         pool_repository: IPoolRepository,
         price_oracle: IPriceOracle,
         swap_service: ISwapService,
+        ohlcv_repository: IOHLCVRepository,
     ) -> None:
         self._tokens = token_repository
         self._pools = pool_repository
         self._oracle = price_oracle
         self._swap = swap_service
+        self._ohlcv = ohlcv_repository
+
+    async def get_ohlcv(
+        self,
+        symbol: str,
+        interval: str,
+        from_ts: datetime,
+        to_ts: datetime,
+    ) -> list[OHLCVCandle]:
+        if interval not in VALID_OHLCV_INTERVALS:
+            raise InvalidOHLCVIntervalError(interval)
+        range_delta = to_ts - from_ts
+        if range_delta > timedelta(days=MAX_OHLCV_RANGE_DAYS):
+            raise OHLCVRangeExceededError(f"Range exceeds {MAX_OHLCV_RANGE_DAYS} days")
+        return await self._ohlcv.get_ohlcv(symbol, interval, from_ts, to_ts)
 
     async def get_quote(
         self,
