@@ -1,3 +1,3 @@
-from .settings import DeFiSettings
+from .settings import ChainConfig, DeFiSettings
 
-__all__ = ["DeFiSettings"]
+__all__ = ["ChainConfig", "DeFiSettings"]
