@@ -1,6 +1,5 @@
 class DeFiError(Exception):
-    """Base exception for all DeFi bounded-context errors."""
-
+    
     def __init__(self, message: str = "") -> None:
         super().__init__(message)
 
@@ -74,9 +73,3 @@ class PositionNotFoundError(DeFiError):
     def __init__(self, position_id: str) -> None:
         super().__init__(f"Position not found: id={position_id}")
         self.position_id = position_id
-
-
-class IndexNotFoundError(DeFiError):
-    def __init__(self, code: str) -> None:
-        super().__init__(f"Index not found: code={code}")
-        self.code = code

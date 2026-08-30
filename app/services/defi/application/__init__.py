@@ -1,3 +1,3 @@
-from .quote_service import QuoteService
+from .quote_service import QuoteService, SwapQuoteService
 
-__all__ = ["QuoteService"]
+__all__ = ["QuoteService", "SwapQuoteService"]
