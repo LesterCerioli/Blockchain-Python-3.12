@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from app.contract_generator import ERC20ContractGenerator
+from app.services.aux.api.routers import router as aux_router
 from app.services.defi.api.routers.defi_router import router as defi_router
 from app.services.defi.application.quote_service import QuoteService
 from app.services.defi.infrastructure.oracles.in_memory_price_oracle import (
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="FastChainBank", lifespan=lifespan)
 app.include_router(defi_router)
+app.include_router(aux_router)
 
 
 class ERC20Properties(BaseModel):
