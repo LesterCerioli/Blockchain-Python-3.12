@@ -182,6 +182,78 @@ tables = [
             },
         ],
     },
+    {
+        "name": "BLOCKCHAIN_tokenization_templates",
+        "attribute_defs": [
+            {"AttributeName": "id", "AttributeType": "S"},
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "name", "AttributeType": "S"},
+            {"AttributeName": "category", "AttributeType": "S"},
+            {"AttributeName": "status", "AttributeType": "S"},
+            {"AttributeName": "created_at", "AttributeType": "N"},
+        ],
+        "key_schema": [{"AttributeName": "id", "KeyType": "HASH"}],
+        "gsis": [
+            {
+                "IndexName": "user_id_index",
+                "KeySchema": [{"AttributeName": "user_id", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+            {
+                "IndexName": "name_index",
+                "KeySchema": [{"AttributeName": "name", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+            {
+                "IndexName": "category_index",
+                "KeySchema": [{"AttributeName": "category", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+            {
+                "IndexName": "status_index",
+                "KeySchema": [{"AttributeName": "status", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+            {
+                "IndexName": "created_at_index",
+                "KeySchema": [{"AttributeName": "created_at", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
+    },
+    {
+        "name": "BLOCKCHAIN_tokenization_audit_logs",
+        "attribute_defs": [
+            {"AttributeName": "id", "AttributeType": "S"},
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "template_name", "AttributeType": "S"},
+            {"AttributeName": "action", "AttributeType": "S"},
+            {"AttributeName": "created_at", "AttributeType": "N"},
+        ],
+        "key_schema": [{"AttributeName": "id", "KeyType": "HASH"}],
+        "gsis": [
+            {
+                "IndexName": "user_id_index",
+                "KeySchema": [{"AttributeName": "user_id", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+            {
+                "IndexName": "template_name_index",
+                "KeySchema": [{"AttributeName": "template_name", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+            {
+                "IndexName": "action_index",
+                "KeySchema": [{"AttributeName": "action", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+            {
+                "IndexName": "created_at_index",
+                "KeySchema": [{"AttributeName": "created_at", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
+    },
 ]
 
 for cfg in tables:
