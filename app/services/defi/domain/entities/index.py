@@ -19,7 +19,8 @@ class TokenRanking(BaseModel):
     name: str
     chain_id: int
     metric: str
-    value: Decimal
+    metric_value: str
+    price_usd: str
 
     model_config = {"frozen": True}
 
