@@ -8,6 +8,10 @@ from pydantic import BaseModel
 from app.contract_generator import ERC20ContractGenerator
 from app.services.aux.api.routers import router as aux_router
 from app.services.defi.api.routers.defi_router import router as defi_router
+from app.services.tokenization.api.routers.tokenization_router import router as tokenization_router
+from app.services.tokenization.application.template_catalog_service import TemplateCatalogService
+from app.services.tokenization.infrastructure.persistence.dynamodb_template_repository import DynamoDBTemplateRepository
+from app.services.tokenization.infrastructure.audit.dynamodb_template_audit_logger import DynamoDBTemplateAuditLogger
 from app.services.defi.application.quote_service import QuoteService
 from app.services.defi.infrastructure.oracles.in_memory_price_oracle import (
     InMemoryPriceOracle,
@@ -58,12 +62,19 @@ async def lifespan(app: FastAPI):
         ohlcv_repository=ohlcv_repo,
     )
     app.state.defi_ohlcv_repository = ohlcv_repo
+    tokenization_repo = DynamoDBTemplateRepository()
+    tokenization_audit = DynamoDBTemplateAuditLogger()
+    app.state.tokenization_catalog_service = TemplateCatalogService(
+        template_repository=tokenization_repo,
+        audit_logger=tokenization_audit,
+    )
     yield
 
 
 app = FastAPI(title="FastChainBank", lifespan=lifespan)
 app.include_router(defi_router)
 app.include_router(aux_router)
+app.include_router(tokenization_router)
 
 
 class ERC20Properties(BaseModel):
