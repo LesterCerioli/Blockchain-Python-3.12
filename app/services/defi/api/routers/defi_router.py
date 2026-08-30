@@ -157,6 +157,10 @@ async def list_indices(
         )
 
 
+VALID_METRICS = ["market_cap", "volume_24h", "price_change_24h"]
+SUPPORTED_CHAINS = ["ethereum", "bsc", "polygon", "avalanche", "fantom", "optimism", "arbitrum", "celo"]
+
+
 @router.get(
     "/indexes/tokens/rankings",
     response_model=PaginatedResponse[TokenRanking],
@@ -164,14 +168,26 @@ async def list_indices(
     summary="Rank tokens by a metric (price/volume/market_cap proxy)",
 )
 async def token_rankings(
-    metric: str = Query("price"),
-    chain_id: int | None = Query(None),
+    metric: str = Query("market_cap"),
+    chain: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     index_service: IndexService = Depends(get_index_service),  # noqa: B008
 ) -> PaginatedResponse[TokenRanking]:
+    if metric not in VALID_METRICS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid metric. Valid: {', '.join(VALID_METRICS)}",
+        )
+
+    if chain is not None and chain.lower() not in [c.lower() for c in SUPPORTED_CHAINS]:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unsupported chain. Valid: {', '.join(SUPPORTED_CHAINS)}",
+        )
+
     try:
-        return await index_service.get_token_rankings(metric, chain_id, page, page_size)
+        return await index_service.get_token_rankings(metric, chain, page, page_size)
     except DeFiError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)

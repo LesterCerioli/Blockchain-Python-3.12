@@ -14,7 +14,23 @@ from ..domain.entities.index import (
     ProtocolRanking,
     TokenRanking,
 )
-from ..domain.exceptions import IndexNotFoundError
+from ..domain.exceptions import DeFiError, IndexNotFoundError
+
+VALID_METRICS = ("market_cap", "volume_24h", "price_change_24h")
+
+CHAIN_ALIASES: dict[str, int] = {
+    "ethereum": 1,
+    "bsc": 56,
+    "polygon": 137,
+    "avalanche": 431,
+    "fantom": 250,
+    "optimism": 10,
+    "arbitrum": 421,
+    "celo": 422,
+    "goerli": 5,
+    "sepolia": 11155411,
+    "mainnet": 1,
+}
 
 DEFAULT_DSN = "postgresql+asyncpg://postgres:postgres@localhost:5432/blockchain_db"
 
@@ -52,13 +68,26 @@ class IndexService:
                 return index
         raise IndexNotFoundError(code)
 
+    def _resolve_chain_id(self, chain: str | None) -> int | None:
+        if chain is None:
+            return None
+        chain_lower = chain.lower().strip()
+        return CHAIN_ALIASES.get(chain_lower)
+
     async def get_token_rankings(
         self,
         metric: str,
-        chain_id: int | None,
+        chain: str | None,
         page: int,
         page_size: int,
     ) -> PaginatedResponse[TokenRanking]:
+        # Validate metric
+        if metric not in VALID_METRICS:
+            raise DeFiError(f"Invalid metric. Valid: {', '.join(VALID_METRICS)}")
+
+        # Resolve chain_id from chain name if provided
+        chain_id = self._resolve_chain_id(chain)
+
         dsn = self._dsn.replace("+asyncpg", "")
         async with await asyncpg.connect(dsn) as conn:
             if chain_id is not None:
@@ -87,8 +116,19 @@ class IndexService:
                 if meta and "volume_24h" in meta[0]
                 else Decimal(0)
             )
-            value = price if metric in ("price", "market_cap") else volume
-            priced.append((row, value))
+            
+            if metric == "market_cap":
+                
+                metric_value = str(price)
+            elif metric == "volume_24h":
+                metric_value = str(volume)
+            elif metric == "price_change_24h":
+                
+                metric_value = "0"
+            else:
+                metric_value = "0"
+
+            priced.append((row, metric_value, price))
 
         priced.sort(key=lambda item: item[1], reverse=True)
         total = len(priced)
@@ -102,9 +142,10 @@ class IndexService:
                 name=row["name"],
                 chain_id=row["chain_id"],
                 metric=metric,
-                value=value,
+                metric_value=metric_value,
+                price_usd=str(price),
             )
-            for i, (row, value) in enumerate(page_rows)
+            for i, (row, metric_value, price) in enumerate(page_rows)
         ]
         return PaginatedResponse(
             items=items, page=page, page_size=page_size, total=total
