@@ -1,5 +1,13 @@
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class ChainConfig(BaseModel):
+    chain_id: int
+    name: str
+    rpc_url: str | None = None
+    explorer: str | None = None
+    is_testnet: bool = False
 
 
 class DeFiSettings(BaseSettings):
@@ -11,6 +19,8 @@ class DeFiSettings(BaseSettings):
         "postgresql+asyncpg://postgres:postgres@localhost:5432/cryptobank"
     )
     cache_url: str = "redis://localhost:6379/1"
+
+    chains: dict[int, ChainConfig] = Field(default_factory=dict)
 
     supported_chain_ids: list[int] = Field(default=[1, 137, 42161])
 

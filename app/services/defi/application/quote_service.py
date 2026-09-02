@@ -122,3 +122,6 @@ class QuoteService:
         if expected_out == 0:
             return Decimal(0)
         return abs(expected_out - amount_out.as_decimal) / expected_out
+
+
+SwapQuoteService = QuoteService
