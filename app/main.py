@@ -2,9 +2,11 @@ import os
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 
+from app.services.auth_service import AuthService
+from app.services.auth.api.auth_router import router as auth_router
 from app.contract_generator import ERC20ContractGenerator
 from app.services.aux.api.routers import router as aux_router
 from app.services.defi.api.routers.defi_router import router as defi_router
@@ -46,6 +48,19 @@ def _get_database_url() -> str:
     return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
 
 
+def _get_auth_database_url() -> str:
+    """Read auth database URL from environment variables."""
+    dsn = os.getenv("AUTH_DATABASE_URL")
+    if dsn:
+        return dsn
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    user = os.getenv("POSTGRES_USER", "postgres")
+    password = os.getenv("POSTGRES_PASSWORD", "postgres")
+    name = os.getenv("POSTGRES_DB", "fastchainbank")
+    return f"postgresql://{user}:{password}@{host}:{port}/{name}"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db_url = _get_database_url()
@@ -68,13 +83,18 @@ async def lifespan(app: FastAPI):
         template_repository=tokenization_repo,
         audit_logger=tokenization_audit,
     )
+    auth_db_url = _get_auth_database_url()
+    app.state.auth_service = AuthService(dsn=auth_db_url)
+    await app.state.auth_service.connect()
     yield
+    await app.state.auth_service.close()
 
 
 app = FastAPI(title="FastChainBank", lifespan=lifespan)
 app.include_router(defi_router)
 app.include_router(aux_router)
 app.include_router(tokenization_router)
+app.include_router(auth_router)
 
 
 class ERC20Properties(BaseModel):
