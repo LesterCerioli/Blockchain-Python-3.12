@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.services.auth.api.dependencies import get_current_token
 from app.services.aux.api.dependencies import (
     get_audit_service,
     get_kyc_service,
@@ -39,11 +40,12 @@ def _not_found(exc: ValueError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
-# -- sessions ------------------------------------------------------------
+
 @router.post("/sessions", tags=["Sessions"])
 def create_session(
     body: SessionCreate,
     service=Depends(get_session_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.create(
@@ -61,6 +63,7 @@ def create_session(
 def get_session(
     email: str = Query(...),
     service=Depends(get_session_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     item = service.get_by_email(email)
     if not item:
@@ -76,6 +79,7 @@ def get_session(
 def refresh_session(
     email: str = Query(...),
     service=Depends(get_session_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.refresh_by_email(email)
@@ -88,6 +92,7 @@ def refresh_session(
 def delete_session(
     email: str = Query(...),
     service=Depends(get_session_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.delete_by_email(email)
@@ -96,11 +101,12 @@ def delete_session(
     return {"deleted": True}
 
 
-# -- users --------------------------------------------------------------
+
 @router.post("/users", tags=["Users"])
 def create_user(
     body: UserCreate,
     service=Depends(get_user_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.create(
@@ -122,6 +128,7 @@ def create_user(
 def get_user(
     email: str = Query(...),
     service=Depends(get_user_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     item = service.get_by_email(email)
     if not item:
@@ -136,6 +143,7 @@ def update_user_status(
     email: str = Query(...),
     body: UserStatusUpdate = ...,
     service=Depends(get_user_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.update_status(email=email, status=body.status)
@@ -146,11 +154,12 @@ def update_user_status(
     return {"email": email, "status": body.status}
 
 
-# -- kyc ----------------------------------------------------------------
+
 @router.post("/kyc", tags=["KYC"])
 def create_kyc(
     body: KycCreate,
     service=Depends(get_kyc_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.create(
@@ -171,6 +180,7 @@ def increment_kyc_version(
     email: str = Query(...),
     body: KycCreate = ...,
     service=Depends(get_kyc_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.increment_version(
@@ -192,6 +202,7 @@ def increment_kyc_version(
 def list_kyc(
     email: str = Query(...),
     service=Depends(get_kyc_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> list[dict]:
     try:
         items = service.get_by_email(email)
@@ -202,11 +213,12 @@ def list_kyc(
     return [item_to_dict(i) for i in items]
 
 
-# -- metadata -----------------------------------------------------------
+
 @router.post("/metadata", tags=["Metadata"])
 def create_metadata(
     body: MetadataCreate,
     service=Depends(get_metadata_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.create(
@@ -223,6 +235,7 @@ def create_metadata(
 def list_metadata(
     email: str = Query(...),
     service=Depends(get_metadata_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> list[dict]:
     try:
         items = service.get_by_email(email)
@@ -233,11 +246,11 @@ def list_metadata(
     return [item_to_dict(i) for i in items]
 
 
-# -- audit --------------------------------------------------------------
 @router.post("/audit", tags=["Audit"])
 def create_audit(
     body: AuditCreate,
     service=Depends(get_audit_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.create(
@@ -256,6 +269,7 @@ def list_audit(
     email: str | None = Query(None),
     action: str | None = Query(None),
     service=Depends(get_audit_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> list[dict]:
     if action:
         items = service.get_by_action(action)
@@ -274,12 +288,12 @@ def list_audit(
     return [item_to_dict(i) for i in items]
 
 
-# -- rate limits --------------------------------------------------------
 @router.post("/rate-limits/increment", tags=["Rate Limits"])
 def increment_rate_limit(
     key: str = Query(...),
     time_window_ms: int = Query(60_000),
     service=Depends(get_rate_limit_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     count = service.increment(key=key, time_window_ms=time_window_ms)
     return {"key": key, "count": count}
@@ -289,15 +303,16 @@ def increment_rate_limit(
 def get_rate_limit(
     key: str = Query(...),
     service=Depends(get_rate_limit_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> list[dict]:
     return [item_to_dict(i) for i in service.get(key)]
 
 
-# -- token meta ---------------------------------------------------------
 @router.post("/token-meta", tags=["Token Meta"])
 def upsert_token_meta(
     body: TokenMetaUpsert,
     service=Depends(get_token_meta_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.upsert(
@@ -317,15 +332,16 @@ def upsert_token_meta(
 def list_token_meta(
     symbol: str = Query(...),
     service=Depends(get_token_meta_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> list[dict]:
     return [item_to_dict(i) for i in service.get_by_symbol(symbol)]
 
 
-# -- ohlcv --------------------------------------------------------------
 @router.post("/ohlcv", tags=["OHLCV"])
 def create_ohlcv(
     body: OhlcvCreate,
     service=Depends(get_ohlcv_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.insert(
@@ -350,6 +366,7 @@ def list_ohlcv(
     from_ms: int | None = Query(None),
     to_ms: int | None = Query(None),
     service=Depends(get_ohlcv_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> list[dict]:
     if from_ms is not None and to_ms is not None:
         items = service.get_by_symbol_time_range(symbol, from_ms, to_ms)
@@ -363,11 +380,11 @@ def list_ohlcv(
     return [item_to_dict(i) for i in items]
 
 
-# -- positions ----------------------------------------------------------
 @router.post("/positions", tags=["Positions"])
 def create_position(
     body: PositionCreate,
     service=Depends(get_position_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> dict:
     try:
         service.insert(
@@ -388,6 +405,7 @@ def list_positions(
     email: str | None = Query(None),
     pool_address: str | None = Query(None),
     service=Depends(get_position_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> list[dict]:
     if email:
         try:

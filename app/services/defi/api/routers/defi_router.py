@@ -3,6 +3,8 @@ from datetime import datetime
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
+from app.services.auth.api.dependencies import get_current_token
+
 from ...application.index_service import IndexService
 from ...application.quote_service import QuoteService
 from ...domain.entities.index import (
@@ -41,6 +43,7 @@ router = APIRouter(prefix="/v1/defi", tags=["defi"])
 async def get_index_by_code(
     index_code: IndexCode = Body(...),  # noqa: B008
     index_service: IndexService = Depends(get_index_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> MarketIndex:
     try:
         index = await index_service.get_index(index_code.code)
@@ -60,7 +63,8 @@ async def get_index_by_code(
 )
 async def get_quote(
     body: QuoteRequest,
-    quote_service: QuoteService = Depends(get_quote_service),  
+    quote_service: QuoteService = Depends(get_quote_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> QuoteResponse:
     try:
         result = await quote_service.get_quote(
@@ -96,6 +100,7 @@ async def get_ohlcv_history(
     from_ts: datetime = Query(...),  # noqa: B008
     to_ts: datetime = Query(...),  # noqa: B008
     quote_service: QuoteService = Depends(get_quote_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> OHLCVResponse:
     try:
         candles = await quote_service.get_ohlcv(
@@ -144,6 +149,7 @@ async def get_ohlcv_history(
 async def list_indices(
     code: str | None = Query(None),
     index_service: IndexService = Depends(get_index_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> list[MarketIndex]:
     try:
         if code:
@@ -173,6 +179,7 @@ async def token_rankings(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     index_service: IndexService = Depends(get_index_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> PaginatedResponse[TokenRanking]:
     if metric not in VALID_METRICS:
         raise HTTPException(
@@ -204,6 +211,7 @@ async def protocol_rankings(
     metric: str = Query("tvl"),
     chain_id: int | None = Query(None),
     index_service: IndexService = Depends(get_index_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> list[ProtocolRanking]:
     try:
         return await index_service.get_protocol_rankings(metric, chain_id)

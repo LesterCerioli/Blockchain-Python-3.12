@@ -1,5 +1,5 @@
 class TokenizationError(Exception):
-    
+
     def __init__(self, message: str = "") -> None:
         super().__init__(message)
 
@@ -61,3 +61,16 @@ class TemplateValidationError(TokenizationError):
 class CatalogSearchError(TokenizationError):
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class TemplateCloneError(TokenizationError):
+    def __init__(self, source_name: str, reason: str) -> None:
+        super().__init__(f"Cannot clone template '{source_name}': {reason}")
+        self.source_name = source_name
+        self.reason = reason
+
+
+class TemplateConsistencyError(TokenizationError):
+    def __init__(self, details: str) -> None:
+        super().__init__(f"Template consistency error: {details}")
+        self.details = details

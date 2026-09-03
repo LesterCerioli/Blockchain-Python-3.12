@@ -1,25 +1,35 @@
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.services.tokenization.application.template_catalog_service import TemplateCatalogService
 from app.services.tokenization.domain.entities.template_status import TemplateStatus
 from app.services.tokenization.domain.exceptions import (
     ApprovalRequiredError,
     TemplateAlreadyExistsError,
+    TemplateCloneError,
+    TemplateConsistencyError,
     TemplateNotArchivableError,
     TemplateNotEditableError,
     TemplateNotFoundError,
     TokenizationError,
 )
 from app.services.tokenization.api.dependencies import get_template_catalog_service
+from app.services.tokenization.api.auth_dependency import get_current_token
 from app.services.tokenization.api.schemas.template_schemas import (
     ApproveTemplateRequest,
     BumpVersionRequest,
+    CloneTemplateRequest,
     CreateTemplateRequest,
+    TemplateLineageResponse,
     TemplateListResponse,
     TemplateResponse,
     TemplateSearchRequest,
+    TokenModelSchemaResponse,
     UpdateTemplateRequest,
+    ValidateTemplateResponse,
 )
+
+_bearer_scheme = HTTPBearer()
 
 
 def _template_to_response(template) -> TemplateResponse:
@@ -35,6 +45,8 @@ def _template_to_response(template) -> TemplateResponse:
         characteristics=template.characteristics.model_dump(),
         token_model=template.token_model.model_dump(),
         business_rules=[r.model_dump() for r in template.business_rules],
+        parent_template_id=template.parent_template_id,
+        overridden_fields=sorted(template.overridden_fields),
         created_at=template.created_at,
         updated_at=template.updated_at,
         created_by=template.created_by,
@@ -44,6 +56,34 @@ def _template_to_response(template) -> TemplateResponse:
 
 
 router = APIRouter(prefix="/v1/tokenization", tags=["tokenization"])
+
+
+@router.get(
+    "/schema",
+    response_model=TokenModelSchemaResponse,
+    summary="Get token model schema (available standards, rule types, fields)",
+)
+async def get_token_model_schema(
+    payload: dict = Depends(get_current_token),
+):
+    return TokenModelSchemaResponse(
+        standards=["ERC20", "ERC721", "ERC1155", "ERC4626"],
+        rule_types=[
+            "transfer_restriction", "earning", "staking", "expiry",
+            "whitelist", "kycaml", "vesting", "compliance", "governance", "custom",
+        ],
+        vesting_fields=["cliff_months", "vesting_months", "initial_unlock_pct", "periodic_unlock_pct"],
+        emission_fields=["emission_type", "rate_per_period", "max_emissions", "period_duration_days"],
+        governance_fields=[
+            "governance_enabled", "voting_threshold_pct", "proposal_delay_hours",
+            "voting_period_hours", "executor_roles",
+        ],
+        compliance_fields=[
+            "kyc_required", "aml_required", "accredited_only",
+            "jurisdiction_restrictions", "max_holders", "transfer_cooldown_seconds",
+            "whitelist_required",
+        ],
+    )
 
 
 @router.post(
@@ -56,6 +96,7 @@ async def create_template(
     email: str = Query(..., description="User email"),
     body: CreateTemplateRequest = Body(...),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateResponse:
     try:
         template = await service.create_template(
@@ -71,13 +112,51 @@ async def create_template(
             business_rules=body.business_rules,
         )
         return _template_to_response(template)
-    except TemplateNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-        )
     except TemplateAlreadyExistsError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        )
+    except TemplateConsistencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+    except TokenizationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@router.post(
+    "/templates/clone",
+    response_model=TemplateResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Clone an existing template with optional overrides",
+)
+async def clone_template(
+    email: str = Query(..., description="User email"),
+    body: CloneTemplateRequest = Body(...),
+    service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
+) -> TemplateResponse:
+    try:
+        template = await service.clone_template(
+            email=email,
+            source_name=body.source_name,
+            new_name=body.new_name,
+            overrides=body.overrides,
+        )
+        return _template_to_response(template)
+    except TemplateAlreadyExistsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        )
+    except TemplateCloneError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
+    except TemplateConsistencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
     except TokenizationError as exc:
         raise HTTPException(
@@ -93,6 +172,7 @@ async def create_template(
 async def list_templates(
     email: str = Query(..., description="User email"),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateListResponse:
     try:
         templates = await service.list_templates(email)
@@ -119,10 +199,59 @@ async def get_template(
     name: str,
     email: str = Query(..., description="User email"),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateResponse:
     try:
         template = await service.get_template(email, name)
         return _template_to_response(template)
+    except TemplateNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        )
+    except TokenizationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@router.get(
+    "/templates/{name}/lineage",
+    response_model=TemplateLineageResponse,
+    summary="Get the inheritance chain of a derived template",
+)
+async def get_template_lineage(
+    name: str,
+    email: str = Query(..., description="User email"),
+    service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
+) -> TemplateLineageResponse:
+    try:
+        chain = await service.get_template_lineage(email, name)
+        return TemplateLineageResponse(chain=chain)
+    except TemplateNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        )
+    except TokenizationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        )
+
+
+@router.get(
+    "/templates/{name}/validate",
+    response_model=ValidateTemplateResponse,
+    summary="Validate a template's token model consistency",
+)
+async def validate_template(
+    name: str,
+    email: str = Query(..., description="User email"),
+    service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
+) -> ValidateTemplateResponse:
+    try:
+        result = await service.validate_template(email, name)
+        return ValidateTemplateResponse(**result)
     except TemplateNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
@@ -143,6 +272,7 @@ async def update_template(
     email: str = Query(..., description="User email"),
     body: UpdateTemplateRequest = Body(...),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateResponse:
     try:
         template = await service.update_template(
@@ -166,6 +296,10 @@ async def update_template(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
+    except TemplateConsistencyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        )
     except TokenizationError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
@@ -181,6 +315,7 @@ async def archive_template(
     name: str,
     email: str = Query(..., description="User email"),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> None:
     try:
         await service.archive_template(email, name)
@@ -207,6 +342,7 @@ async def submit_for_review(
     name: str,
     email: str = Query(..., description="User email"),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateResponse:
     try:
         template = await service.submit_for_review(email, name)
@@ -235,6 +371,7 @@ async def approve_template(
     email: str = Query(..., description="User email"),
     body: ApproveTemplateRequest = Body(...),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateResponse:
     try:
         template = await service.approve_template(email, name, body.approved_by)
@@ -262,6 +399,7 @@ async def activate_template(
     name: str,
     email: str = Query(..., description="User email"),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateResponse:
     try:
         template = await service.activate_template(email, name)
@@ -289,6 +427,7 @@ async def deprecate_template(
     name: str,
     email: str = Query(..., description="User email"),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateResponse:
     try:
         template = await service.deprecate_template(email, name)
@@ -313,6 +452,7 @@ async def bump_version(
     email: str = Query(..., description="User email"),
     body: BumpVersionRequest = Body(...),  # noqa: B008
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateResponse:
     try:
         template = await service.bump_version(email, name, body.bump_type)
@@ -336,6 +476,7 @@ async def search_templates(
     email: str = Query(..., description="User email"),
     body: TemplateSearchRequest = Body(...),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateListResponse:
     try:
         status_filter = None
@@ -375,6 +516,7 @@ async def list_by_category(
     category: str,
     email: str = Query(..., description="User email"),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateListResponse:
     try:
         templates = await service.list_by_category(email, category)
@@ -401,6 +543,7 @@ async def list_by_strategy(
     strategy: str,
     email: str = Query(..., description="User email"),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ) -> TemplateListResponse:
     try:
         templates = await service.list_by_strategy(email, strategy)
@@ -425,6 +568,7 @@ async def list_by_strategy(
 async def seed_catalog(
     email: str = Query(..., description="User email"),
     service: TemplateCatalogService = Depends(get_template_catalog_service),  # noqa: B008
+    payload: dict = Depends(get_current_token),
 ):
     from ...infrastructure.seed_data import seed_catalog
 
