@@ -12,6 +12,7 @@ from app.contract_generator import ERC20ContractGenerator
 from app.services.aux.api.routers import router as aux_router
 from app.services.defi.api.routers.defi_router import router as defi_router
 from app.services.tokenization.api.routers.tokenization_router import router as tokenization_router
+from app.services.tokenization.api.routers.journey_router import router as journey_router
 from app.services.tokenization.application.template_catalog_service import TemplateCatalogService
 from app.services.tokenization.infrastructure.persistence.dynamodb_template_repository import DynamoDBTemplateRepository
 from app.services.tokenization.infrastructure.audit.dynamodb_template_audit_logger import DynamoDBTemplateAuditLogger
@@ -95,6 +96,7 @@ app = FastAPI(title="FastChainBank", lifespan=lifespan)
 app.include_router(defi_router)
 app.include_router(aux_router)
 app.include_router(tokenization_router)
+app.include_router(journey_router)
 app.include_router(auth_router)
 
 
