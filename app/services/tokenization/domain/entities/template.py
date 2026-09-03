@@ -29,6 +29,14 @@ class Template(BaseModel):
         default_factory=lambda: TokenModel(standard="ERC20", name="Token", symbol="TKN")
     )
     business_rules: list[BusinessRule] = Field(default_factory=list)
+    parent_template_id: str | None = Field(
+        default=None,
+        description="ID of the template this was derived from",
+    )
+    overridden_fields: set[str] = Field(
+        default_factory=set,
+        description="Fields customized relative to parent template",
+    )
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     created_by: str = "system"
@@ -62,3 +70,14 @@ class Template(BaseModel):
     @property
     def is_archived(self) -> bool:
         return self.status == TemplateStatus.ARCHIVED
+
+    @property
+    def is_derived(self) -> bool:
+        return self.parent_template_id is not None
+
+    def get_inherited_fields(self) -> set[str]:
+        all_fields = {
+            "description", "category", "strategy", "token_standard",
+            "metadata", "characteristics", "token_model", "business_rules",
+        }
+        return all_fields - self.overridden_fields

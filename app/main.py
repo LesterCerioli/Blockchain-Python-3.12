@@ -2,9 +2,10 @@ import os
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel
 
+from app.services.auth.api.dependencies import get_current_token
 from app.services.auth_service import AuthService
 from app.services.auth.api.auth_router import router as auth_router
 from app.contract_generator import ERC20ContractGenerator
@@ -124,7 +125,10 @@ async def root():
 
 
 @app.post("/generate/erc20/", response_model=ContractCodeResponse)
-async def generate_erc20_contract(properties: ERC20Properties):
+async def generate_erc20_contract(
+    properties: ERC20Properties,
+    payload: dict = Depends(get_current_token),
+):
     generator = ERC20ContractGenerator()
     code = generator.generate_contract(
         name=properties.name,
@@ -136,7 +140,10 @@ async def generate_erc20_contract(properties: ERC20Properties):
 
 
 @app.post("/service/prepare-contract-interaction/", response_model=TokenServiceResponse)
-async def prepare_interaction_data(request: TokenServiceRequest):
+async def prepare_interaction_data(
+    request: TokenServiceRequest,
+    payload: dict = Depends(get_current_token),
+):
     result = prepare_contract_interaction_data(
         contract_address=request.contract_address,
         function_name=request.function_name,
