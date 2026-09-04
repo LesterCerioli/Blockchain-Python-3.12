@@ -303,6 +303,21 @@ tables = [
     },
 ]
 
+
+try:
+    from create_llm_history_tables import LLM_HISTORY_TABLES
+except ImportError:
+    try:
+        from queries.dynamodb.create_llm_history_tables import LLM_HISTORY_TABLES
+    except ImportError:  # executado como script: adiciona proprio diretorio ao path
+        import sys as _sys
+        import os as _os
+
+        _sys.path.insert(0, _os.path.dirname(__file__))
+        from create_llm_history_tables import LLM_HISTORY_TABLES
+
+tables.extend(LLM_HISTORY_TABLES)
+
 for cfg in tables:
     print(f"Criando tabela: {cfg['name']}")
     ok = create_table(

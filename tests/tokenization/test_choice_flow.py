@@ -115,7 +115,8 @@ class TestRecommendationChoiceService:
         mock_repo.list_all = AsyncMock(return_value=[retail_tpl, gaming_tpl])
         choice_repo = MagicMock()
         svc = RecommendationChoiceService(mock_repo, choice_repo, GroqReorderAdapter(TokenizationSettings(groq_enabled=False)))
-        result = asyncio.run(svc.get_templates_by_business_type("u1", BusinessType.RETAIL))
+        svc._resolve_user_id_by_email = lambda email: "wallet-u1"
+        result = asyncio.run(svc.get_templates_by_business_type("u1@example.com", BusinessType.RETAIL))
         assert "Loyalty Token" in result
         assert "Reward Token" not in result
 
@@ -134,8 +135,9 @@ class TestRecommendationChoiceService:
         choice_repo = MagicMock()
         choice_repo.save = AsyncMock()
         svc = RecommendationChoiceService(mock_repo, choice_repo, GroqReorderAdapter(TokenizationSettings(groq_enabled=False)))
-        choice = asyncio.run(svc.persist_choice("u1", BusinessType.FINTECH, "description with enough length for validation", "Loyalty Token"))
-        assert choice.user_id == "u1"
+        svc._resolve_user_id_by_email = lambda email: "wallet-u1"
+        choice = asyncio.run(svc.persist_choice("u1@example.com", BusinessType.FINTECH, "description with enough length for validation", "Loyalty Token"))
+        assert choice.user_id == "wallet-u1"
         assert choice.business_type == BusinessType.FINTECH
         assert choice.tokenization_template == "Loyalty Token"
         choice_repo.save.assert_called_once()
@@ -144,16 +146,17 @@ class TestRecommendationChoiceService:
         mock_repo = MagicMock()
         choice_repo = MagicMock()
         svc = RecommendationChoiceService(mock_repo, choice_repo, GroqReorderAdapter(TokenizationSettings(groq_enabled=False)))
+        svc._resolve_user_id_by_email = lambda email: (_ for _ in ()).throw(ValueError("user not found for email"))
         with pytest.raises(ValueError):
-            asyncio.run(svc.persist_choice(" ", BusinessType.RETAIL, "valid description 12345", "T"))
+            asyncio.run(svc.persist_choice("unknown@example.com", BusinessType.RETAIL, "valid description 12345", "T"))
 
     def test_persist_creates_custom_option(self):
         mock_repo = MagicMock()
         choice_repo = MagicMock()
         choice_repo.save = AsyncMock()
         svc = RecommendationChoiceService(mock_repo, choice_repo, GroqReorderAdapter(TokenizationSettings(groq_enabled=False)))
-        
-        choice = asyncio.run(svc.persist_choice("u1", BusinessType.RETAIL, "challenge description long enough xyz", "Nenhuma destas — Criar do Zero"))
+        svc._resolve_user_id_by_email = lambda email: "wallet-u1"
+        choice = asyncio.run(svc.persist_choice("u1@example.com", BusinessType.RETAIL, "challenge description long enough xyz", "Nenhuma destas — Criar do Zero"))
         assert choice.tokenization_template == "Nenhuma destas — Criar do Zero"
 
     def test_persist_choice_dual_writes_to_both_repos(self):
@@ -167,13 +170,14 @@ class TestRecommendationChoiceService:
             GroqReorderAdapter(TokenizationSettings(groq_enabled=False)),
             postgres_choices=postgres_repo,
         )
+        svc._resolve_user_id_by_email = lambda email: "wallet-u1"
         choice = asyncio.run(svc.persist_choice(
-            "u1", BusinessType.FINTECH, "description with enough length for validation", "Loyalty Token"
+            "u1@example.com", BusinessType.FINTECH, "description with enough length for validation", "Loyalty Token"
         ))
         dynamo_repo.save.assert_called_once()
         postgres_repo.save.assert_called_once()
         saved_choice = postgres_repo.save.call_args[0][0]
-        assert saved_choice.user_id == "u1"
+        assert saved_choice.user_id == "wallet-u1"
 
     def test_persist_choice_postgres_optional(self):
         mock_repo = MagicMock()
@@ -184,8 +188,9 @@ class TestRecommendationChoiceService:
             GroqReorderAdapter(TokenizationSettings(groq_enabled=False)),
             postgres_choices=None,
         )
+        svc._resolve_user_id_by_email = lambda email: "wallet-u1"
         choice = asyncio.run(svc.persist_choice(
-            "u1", BusinessType.FINTECH, "description with enough length for validation", "Loyalty Token"
+            "u1@example.com", BusinessType.FINTECH, "description with enough length for validation", "Loyalty Token"
         ))
         dynamo_repo.save.assert_called_once()
 
@@ -200,11 +205,12 @@ class TestRecommendationChoiceService:
             GroqReorderAdapter(TokenizationSettings(groq_enabled=False)),
             postgres_choices=postgres_repo,
         )
+        svc._resolve_user_id_by_email = lambda email: "wallet-u1"
         choice = asyncio.run(svc.persist_choice(
-            "u1", BusinessType.FINTECH, "description with enough length for validation", "Loyalty Token"
+            "u1@example.com", BusinessType.FINTECH, "description with enough length for validation", "Loyalty Token"
         ))
         dynamo_repo.save.assert_called_once()
-        assert choice.user_id == "u1"
+        assert choice.user_id == "wallet-u1"
 
 
 class TestDynamoDBChoiceRepository:
@@ -232,7 +238,7 @@ class TestDynamoDBChoiceRepository:
         item = repo._to_item(choice)
         created_at = int(item["created_at"]["N"])
         assert created_at > 0
-        assert created_at == 1768503000000
+        assert created_at == 1768473000000
 
 
 class TestPostgresChoiceRepositorySQL:

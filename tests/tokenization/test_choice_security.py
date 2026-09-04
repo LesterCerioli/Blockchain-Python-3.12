@@ -197,7 +197,7 @@ class TestDynamoDBChoiceSecurity:
         repo = DynamoDBChoiceRepository.__new__(DynamoDBChoiceRepository)
         mock_client = MagicMock()
         
-        def fake_query(TableName, IndexName, KeyConditionExpression, ExpressionAttributeNames, ExpressionAttributeValues):
+        def fake_query(TableName, IndexName, KeyConditionExpression, ExpressionAttributeNames, ExpressionAttributeValues, **kwargs):
             uid = ExpressionAttributeValues[":uid"]["S"]
             if uid == "userA":
                 return {"Items": [
@@ -297,17 +297,19 @@ class TestChoiceServicePersistenceSecurity:
         mock_tpl = MagicMock(); mock_tpl.search = AsyncMock(return_value=[]); mock_tpl.list_all = AsyncMock(return_value=[])
         mock_choice = MagicMock(); mock_choice.save = AsyncMock()
         svc = RecommendationChoiceService(mock_tpl, mock_choice, GroqReorderAdapter(TokenizationSettings(groq_enabled=False)))
+        svc._resolve_user_id_by_email = lambda email: "wallet-u1"
         # Simulate suggestions = ["A","B","C"] but user chooses "B"
-        asyncio.run(svc.persist_choice("u1", BusinessType.RETAIL, "valid description 1234567890", "B"))
+        asyncio.run(svc.persist_choice("u1@example.com", BusinessType.RETAIL, "valid description 1234567890", "B"))
         mock_choice.save.assert_called_once()
         saved: TokenizationChoice = mock_choice.save.call_args[0][0]
         assert saved.tokenization_template == "B"
-        assert saved.user_id == "u1"
+        assert saved.user_id == "wallet-u1"
 
     def test_persist_rejects_empty_template_after_strip(self):
         svc = RecommendationChoiceService(MagicMock(), MagicMock(), GroqReorderAdapter(TokenizationSettings(groq_enabled=False)))
+        svc._resolve_user_id_by_email = lambda email: "wallet-u1"
         with pytest.raises(ValueError):
-            asyncio.run(svc.persist_choice("u1", BusinessType.RETAIL, "valid description 1234567890", "   "))
+            asyncio.run(svc.persist_choice("u1@example.com", BusinessType.RETAIL, "valid description 1234567890", "   "))
 
     def test_get_templates_filters_by_industry_only(self):
         from app.services.tokenization.domain.entities.template import Template
@@ -321,7 +323,8 @@ class TestChoiceServicePersistenceSecurity:
         t_gaming = make("Reward", "gaming")
         mock_tpl = MagicMock(); mock_tpl.search = AsyncMock(return_value=[t_retail]); mock_tpl.list_all = AsyncMock(return_value=[t_retail, t_gaming])
         svc = RecommendationChoiceService(mock_tpl, MagicMock(), GroqReorderAdapter(TokenizationSettings(groq_enabled=False)))
-        res = asyncio.run(svc.get_templates_by_business_type("u1", BusinessType.RETAIL))
+        svc._resolve_user_id_by_email = lambda email: "wallet-u1"
+        res = asyncio.run(svc.get_templates_by_business_type("u1@example.com", BusinessType.RETAIL))
         assert "Loyalty" in res and "Reward" not in res
 
     def test_reorder_never_invents_even_with_groq(self):

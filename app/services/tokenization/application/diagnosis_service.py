@@ -112,7 +112,11 @@ _GOAL_KEYWORDS: list[tuple[str, float]] = [
 
 
 class DiagnosisService:
-    """Classifies business objectives and maps them to tokenization strategies."""
+    
+    def __init__(self, llm_adapter=None, diagnosis_repository=None, settings=None) -> None:
+        self._llm = llm_adapter
+        self._history_repo = diagnosis_repository
+        self._settings = settings
 
     def diagnose(self, objective: BusinessObjective) -> Diagnosis:
         text = objective.description.lower()
@@ -175,6 +179,82 @@ class DiagnosisService:
             goals=goals,
             reasoning=reasoning,
         )
+
+    async def diagnose_with_llm(
+        self,
+        objective: BusinessObjective,
+        user_id: str | None = None,
+        tokenization_implementation_id: str | None = None,
+    ) -> Diagnosis:
+        
+        llm_result = None
+        if self._llm is not None:
+            try:
+                # adapters expose diagnose(description, industry)
+                llm_result = await self._llm.diagnose(objective.description, objective.industry)  # type: ignore[attr-defined]
+            except Exception:
+                llm_result = None
+        if llm_result and isinstance(llm_result, dict) and llm_result.get("primary_category"):
+            try:
+                cat_val = str(llm_result["primary_category"]).lower()
+                primary = ObjectiveCategory(cat_val)
+                conf_val = str(llm_result.get("confidence", "medium")).lower()
+                confidence = DiagnosisConfidence(conf_val) if conf_val in ("high", "medium", "low") else DiagnosisConfidence.MEDIUM
+                score = float(llm_result.get("confidence_score", 0.7))
+                score = max(0.0, min(1.0, score))
+                # persist history if repo available
+                if self._history_repo is not None and user_id:
+                    try:
+                        await self._history_repo.save(  # type: ignore[attr-defined]
+                            user_id=user_id,
+                            objective_description=objective.description,
+                            primary_category=primary.value,
+                            diagnosis_payload=llm_result,
+                            tokenization_implementation_id=tokenization_implementation_id,
+                        )
+                    except Exception:
+                        pass
+                secondary = []
+                for sc in llm_result.get("secondary_categories", [])[:2]:
+                    try:
+                        secondary.append(ObjectiveCategory(str(sc).lower()))
+                    except Exception:
+                        continue
+                
+                text_lower = objective.description.lower()
+                base_pain = self._extract_pain_points(text_lower)
+                base_goals = self._extract_goals(text_lower)
+                llm_pain = llm_result.get("pain_points", []) or base_pain
+                llm_goals = llm_result.get("goals", []) or base_goals
+                reasoning = llm_result.get("reasoning") or self._build_reasoning(
+                    primary, confidence, [], llm_pain, llm_goals, objective
+                )
+                return Diagnosis(
+                    primary_category=primary,
+                    secondary_categories=secondary,
+                    confidence=confidence,
+                    confidence_score=round(score, 3),
+                    keywords_found=[],
+                    pain_points=llm_pain[:5],
+                    goals=llm_goals[:5],
+                    reasoning=reasoning,
+                )
+            except Exception:
+                pass
+        
+        result = self.diagnose(objective)
+        if self._history_repo is not None and user_id:
+            try:
+                await self._history_repo.save(
+                    user_id=user_id,
+                    objective_description=objective.description,
+                    primary_category=result.primary_category.value,
+                    diagnosis_payload=result.model_dump(),
+                    tokenization_implementation_id=tokenization_implementation_id,
+                )
+            except Exception:
+                pass
+        return result
 
     def _extract_context(self, text: str, keyword: str, window: int = 50) -> str:
         idx = text.find(keyword)

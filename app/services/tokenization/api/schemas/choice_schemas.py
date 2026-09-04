@@ -14,7 +14,7 @@ class TemplatesByBusinessTypeResponse(BaseModel):
 
 
 class ReorderRequest(BaseModel):
-    user_id: str = Field(..., min_length=1)
+    email: str = Field(..., min_length=3, description="User email - resolved to internal user_id in backend")
     business_type: BusinessType
     description: str = Field(..., min_length=10, max_length=2000, description="description_tokenization")
 
@@ -27,7 +27,7 @@ class ReorderResponse(BaseModel):
 
 
 class ChoiceCreateRequest(BaseModel):
-    user_id: str = Field(..., min_length=1)
+    email: str = Field(..., min_length=3, description="User email - resolved to internal user_id in backend")
     business_type: BusinessType
     description_tokenization: str = Field(..., min_length=10, max_length=2000)
     tokenization_template: str = Field(..., min_length=1, description="Chosen template name or 'Nenhuma destas — Criar do Zero'")

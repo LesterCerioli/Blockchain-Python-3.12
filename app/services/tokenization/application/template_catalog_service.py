@@ -172,7 +172,14 @@ class TemplateCatalogService:
         from app.services.tokenization.domain.entities.template_metadata import TemplateMetadata
         from app.services.tokenization.domain.entities.token_model import TokenModel
 
-        tm = TokenModel(standard=token_standard, name=name, symbol=name[:8].upper()) if token_model is None else TokenModel(**token_model)
+        if token_model is None:
+            decimals = 0 if token_standard in ("ERC721", "ERC1155") else 18
+            tm = TokenModel(standard=token_standard, name=name, symbol=name[:8].upper(), decimals=decimals)
+        else:
+            # Ensure ERC721/1155 decimals auto-correct if not explicitly set to 0
+            if token_standard in ("ERC721", "ERC1155") and token_model.get("decimals", 18) != 0:
+                token_model = {**token_model, "decimals": 0}
+            tm = TokenModel(**token_model)
         ch = TemplateCharacteristics(target_use_case="general", industry="general") if characteristics is None else TemplateCharacteristics(**characteristics)
         md = TemplateMetadata() if metadata is None else TemplateMetadata(**metadata)
         rules = [BusinessRule(**r) for r in business_rules] if business_rules else []

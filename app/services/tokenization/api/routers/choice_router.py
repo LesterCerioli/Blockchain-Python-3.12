@@ -17,9 +17,21 @@ router = APIRouter(prefix="/tokenization", tags=["tokenization-choices"])
 
 CREATE_ZERO_OPTION = "Nenhuma destas — Criar do Zero"
 
+__all__ = ["router", "CREATE_ZERO_OPTION", "get_choice_service"]
+
 
 async def get_choice_service(request: Request) -> RecommendationChoiceService:
-    return request.app.state.choice_service
+    """Resolve o serviço via lifespan (app.state). Nenhum client externo é criado aqui."""
+    try:
+        svc = request.app.state.choice_service  # type: ignore[attr-defined]
+    except AttributeError:
+        svc = None
+    if svc is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="choice_service not configured",
+        )
+    return svc
 
 
 @router.get(
@@ -44,11 +56,16 @@ async def list_business_types(
 )
 async def get_templates_by_business_type(
     business_type: BusinessType = Query(...),
-    user_id: str = Query(..., min_length=1),
+    email: str = Query(..., min_length=3, description="User email"),
     _token: dict = Depends(get_current_token),
     svc: RecommendationChoiceService = Depends(get_choice_service),
 ) -> TemplatesByBusinessTypeResponse:
-    templates = await svc.get_templates_by_business_type(user_id, business_type)
+    try:
+        templates = await svc.get_templates_by_business_type(email, business_type)
+    except ValueError as exc:
+        if "not found" in str(exc).lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     return TemplatesByBusinessTypeResponse(
         business_type=business_type.value,
         templates=templates,
@@ -66,8 +83,18 @@ async def reorder_templates(
     _token: dict = Depends(get_current_token),
     svc: RecommendationChoiceService = Depends(get_choice_service),
 ) -> ReorderResponse:
-    candidates = await svc.get_templates_by_business_type(body.user_id, body.business_type)
-    ordered = await svc.reorder_with_groq(body.business_type, body.description, candidates)
+    try:
+        candidates = await svc.get_templates_by_business_type(body.email, body.business_type)
+    except ValueError as exc:
+        if "not found" in str(exc).lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    ordered = await svc.reorder_with_groq(
+        body.business_type,
+        body.description,
+        candidates,
+        email=body.email,
+    )
     final = ordered + [CREATE_ZERO_OPTION]
     return ReorderResponse(
         business_type=body.business_type.value,
@@ -90,12 +117,14 @@ async def create_choice(
 ) -> ChoiceResponse:
     try:
         choice = await svc.persist_choice(
-            user_id=body.user_id,
+            email=body.email,
             business_type=body.business_type,
             description_tokenization=body.description_tokenization,
             tokenization_template=body.tokenization_template,
         )
     except ValueError as exc:
+        if "not found" in str(exc).lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     return ChoiceResponse(
         id=choice.id,
@@ -110,14 +139,19 @@ async def create_choice(
 @router.get(
     "/choices",
     response_model=ChoiceListResponse,
-    summary="Lista escolhas por user_id (isolamento obrigatório)",
+    summary="Lista escolhas por email (isolamento obrigatório, user_id resolvido no backend)",
 )
 async def list_choices(
-    user_id: str = Query(..., min_length=1),
+    email: str = Query(..., min_length=3, description="User email"),
     _token: dict = Depends(get_current_token),
     svc: RecommendationChoiceService = Depends(get_choice_service),
 ) -> ChoiceListResponse:
-    items = await svc.get_user_choices(user_id)
+    try:
+        items = await svc.get_user_choices(email)
+    except ValueError as exc:
+        if "not found" in str(exc).lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     return ChoiceListResponse(
         items=[
             ChoiceResponse(

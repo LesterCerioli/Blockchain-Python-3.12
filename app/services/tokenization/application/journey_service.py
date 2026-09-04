@@ -31,8 +31,7 @@ class JourneyState(BaseModel):
 
 
 class JourneyService:
-    """Orchestrates the full tokenization journey from objective to plan."""
-
+    
     def __init__(
         self,
         diagnosis_service: DiagnosisService,
@@ -70,15 +69,15 @@ class JourneyService:
         objective: BusinessObjective,
         diagnosis: Diagnosis,
         strategy: StrategyRecommendation,
-        template_id: str,
+        template_name: str,
         customization: dict | None = None,
     ) -> TokenizationPlan:
         templates = await self._recommendation.recommend_templates(
             objective, diagnosis, strategy,
         )
-        selected = next((t for t in templates if t.template_id == template_id), None)
+        selected = next((t for t in templates if t.template_name == template_name), None)
         if selected is None:
-            raise ValueError(f"Template {template_id} not found in recommendations")
+            raise ValueError(f"Template {template_name} not found in recommendations")
 
         plan = await self._recommendation.create_plan(
             objective, diagnosis, strategy, selected, customization,

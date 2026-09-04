@@ -15,7 +15,7 @@ from app.services.tokenization.infrastructure.repositories.in_memory_template_re
 
 class TestRecommendationService:
     def setup_method(self):
-        self.repo = InMemoryTemplateRepository()
+        self.repo = InMemoryTemplateRepository(load_seed=True)
         self.recommendation_service = RecommendationService(self.repo)
         self.diagnosis_service = DiagnosisService()
 

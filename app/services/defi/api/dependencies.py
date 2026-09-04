@@ -1,26 +1,10 @@
-import os
-
-from fastapi import Request
+from fastapi import HTTPException, Request, status
 
 from ..application.chain_config_service import ChainConfigService
 from ..application.index_service import IndexService
 from ..application.quote_service import QuoteService
 from ..domain.interfaces.ohlcv_repository import IOHLCVRepository
-from ..infrastructure.config.settings import DeFiSettings
-from ..infrastructure.persistence.database import Database
 from ..infrastructure.persistence.platform_secrets_service import PlatformSecretsService
-
-
-def _get_database_url() -> str:
-    dsn = os.getenv("DEFI_DATABASE_URL")
-    if dsn:
-        return dsn
-    host = os.getenv("DB_HOST", "localhost")
-    port = os.getenv("DB_PORT", "5432")
-    user = os.getenv("DB_USER", "postgres")
-    password = os.getenv("DB_PASSWORD", "postgres")
-    name = os.getenv("DB_NAME", "blockchain_db")
-    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
 
 
 def get_quote_service(request: Request) -> QuoteService:
@@ -32,18 +16,46 @@ def get_market_quote_service(request: Request) -> QuoteService:
 
 
 def get_platform_secrets_service(request: Request) -> PlatformSecretsService:
-    db = Database(_get_database_url())
-    return PlatformSecretsService(db)
+    """Resolve via lifespan (app.state). Nenhum client externo é criado aqui."""
+    try:
+        svc = request.app.state.platform_secrets_service
+    except AttributeError:
+        svc = None
+    if svc is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="platform_secrets_service not configured",
+        )
+    return svc
 
 
 def get_chain_config_service(request: Request) -> ChainConfigService:
-    settings = DeFiSettings()
-    return ChainConfigService(settings)
+    """Resolve via lifespan (app.state). Nenhum serviço é construído aqui."""
+    try:
+        svc = request.app.state.chain_config_service
+    except AttributeError:
+        svc = None
+    if svc is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="chain_config_service not configured",
+        )
+    return svc
 
 
 def get_ohlcv_repository(request: Request) -> IOHLCVRepository:
     return request.app.state.defi_ohlcv_repository
 
 
-def get_index_service() -> IndexService:
-    return IndexService()
+def get_index_service(request: Request) -> IndexService:
+    """Resolve via lifespan (app.state). Nenhum client externo é criado aqui."""
+    try:
+        svc = request.app.state.index_service
+    except AttributeError:
+        svc = None
+    if svc is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="index_service not configured",
+        )
+    return svc

@@ -566,6 +566,44 @@ Secret keys must be injected at deploy time via environment secrets — never co
 
 ---
 
+### Tokenization Recommendation & Choice Persistence — FEATURE 2.1 (Groq)
+
+**Spec:** `business_type` + `description_tokenization` → Groq reorders only existing templates → user picks → persist `user_id, business_type, description_tokenization, tokenization_template` in `BLOCKCHAIN_tokenization_templates` (DynamoDB) + `tokenization_choices` (Postgres native SQL) with `user_id` isolation.
+
+**Flow:**
+1. `GET /tokenization/business-types` → list `BusinessType` enum (retail, fintech, gaming, real_estate, media, dao, defi, social, healthcare, education, logistics, energy, finance, blockchain, other)
+2. `GET /tokenization/templates/by-business-type?business_type=retail&user_id=xxx` → async background load (query `user_id_index` + filter `industry/tags`, parameterized)
+3. `POST /tokenization/recommendation/order` `{user_id, business_type, description}` → Groq reorders only — never invents — returns `ordered_templates + ["Nenhuma destas — Criar do Zero"]`
+4. Frontend shows ordered list
+5. `POST /tokenization/choices` `{user_id, business_type, description_tokenization, tokenization_template}` → persists only final choice (isolated by `user_id`, `WHERE user_id = :user_id`)
+
+**Groq config** (`app/services/tokenization/infrastructure/config/settings.py:14`):
+| Field | Env | Default | Type |
+|-------|-----|---------|------|
+| `groq_api_key` | `TOKENIZATION_GROQ_API_KEY` | `None` | `SecretStr` |
+| `groq_model` | `TOKENIZATION_GROQ_MODEL` | `llama-3.1-70b-versatile` | `str` |
+| `groq_timeout_seconds` | `TOKENIZATION_GROQ_TIMEOUT_SECONDS` | `10` | `int` |
+| `groq_enabled` | `TOKENIZATION_GROQ_ENABLED` | `true` | `bool` |
+
+Security: `SecretStr` masks in logs, belongs to platform operator, fallback to local ordering if disabled/missing. Prompt is strict: `NÃO invente opções novas`.
+
+**Persistence:**
+- Primary: DynamoDB `BLOCKCHAIN_tokenization_templates` — item `record_type=choice` with attributes `business_type, description_tokenization, tokenization_template` (saves only chosen, not suggestions)
+- Audit SQL (native, parameterized): Postgres `tokenization_choices` (`migrations/tokenization/002_create_choices.sql`) via `sqlalchemy.text("... WHERE user_id = :user_id")` with bound params — blocks SQL injection. All service SQL uses `text()` + `:param`, never string interpolation.
+
+**Endpoints:**
+| Method | Path | Auth |
+|--------|------|------|
+| `GET` | `/tokenization/business-types` | Bearer |
+| `GET` | `/tokenization/templates/by-business-type` | Bearer |
+| `POST` | `/tokenization/recommendation/order` | Bearer |
+| `POST` | `/tokenization/choices` | Bearer |
+| `GET` | `/tokenization/choices?user_id=xxx` | Bearer |
+
+Backend does **only recommendation + persistence**; code generation is frontend responsibility.
+
+---
+
 ## Regulatory boundaries
 
 Zero financial license cost is not zero compliance. As a technology company the platform maintains:
