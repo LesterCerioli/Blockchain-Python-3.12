@@ -16,7 +16,6 @@ class ProviderConfig:
 
 
 class BaseProvider(ABC):
-    
     def __init__(self, config: ProviderConfig) -> None:
         self._config = config
         self._circuit_breaker = CircuitBreaker(

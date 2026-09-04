@@ -5,7 +5,6 @@ from ..value_objects.token_amount import TokenAmount
 
 
 class ISwapService(ABC):
-    
     @abstractmethod
     async def get_quote(
         self,

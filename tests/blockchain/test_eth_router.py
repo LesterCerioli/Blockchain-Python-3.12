@@ -1,22 +1,31 @@
-import sys
 import os
+import sys
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+from app.services.auth.api.dependencies import get_current_token
 from app.services.blockchain.ethereum.api.routers.eth_router import router
-from app.services.blockchain.ethereum.domain.interfaces.health_monitor import ProviderHealth
-from app.services.blockchain.ethereum.domain.interfaces.network_service import NetworkInfo
+from app.services.blockchain.ethereum.domain.interfaces.health_monitor import (
+    ProviderHealth,
+)
+from app.services.blockchain.ethereum.domain.interfaces.network_service import (
+    NetworkInfo,
+)
+
+
+async def _mock_token():
+    return {"sub": "test", "iss": "auth_service", "type": "m2m"}
 
 
 def _build_app(health_service, network_service) -> FastAPI:
     app = FastAPI()
     app.state.health_service = health_service
     app.state.network_service = network_service
+    app.dependency_overrides[get_current_token] = _mock_token
     app.include_router(router)
     return app
 

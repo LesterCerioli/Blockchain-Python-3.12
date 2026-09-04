@@ -1,11 +1,170 @@
-from fastapi import FastAPI
+import os
+from contextlib import asynccontextmanager
+from typing import Any
+
+from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel
-from typing import List, Dict, Any
 
+from app.services.auth.api.dependencies import get_current_token
+from app.services.auth_service import AuthService
+from app.services.auth.api.auth_router import router as auth_router
 from app.contract_generator import ERC20ContractGenerator
-from app.token_services import format_token_transfer_data, prepare_contract_interaction_data
+from app.services.aux.api.routers import router as aux_router
+from app.services.defi.api.routers.defi_router import router as defi_router
+from app.services.tokenization.api.routers.tokenization_router import router as tokenization_router
+from app.services.tokenization.api.routers.journey_router import router as journey_router
+from app.services.tokenization.api.routers.choice_router import router as choice_router
+from app.services.tokenization.application.template_catalog_service import TemplateCatalogService
+from app.services.tokenization.application.recommendation_choice_service import RecommendationChoiceService
+from app.services.tokenization.infrastructure.persistence.dynamodb_template_repository import DynamoDBTemplateRepository
+from app.services.tokenization.infrastructure.persistence.dynamodb_choice_repository import DynamoDBChoiceRepository
+from app.services.tokenization.infrastructure.persistence.postgres_choice_repository import PostgresChoiceRepository
+from app.services.tokenization.infrastructure.persistence.database import TokenizationDatabase
+from app.services.tokenization.infrastructure.audit.dynamodb_template_audit_logger import DynamoDBTemplateAuditLogger
+from app.services.defi.application.quote_service import QuoteService
+from app.services.defi.infrastructure.oracles.in_memory_price_oracle import (
+    InMemoryPriceOracle,
+)
+from app.services.defi.infrastructure.repositories.in_memory_ohlcv_repository import (
+    InMemoryOHLCVRepository,
+)
+from app.services.defi.infrastructure.repositories.in_memory_pool_repository import (
+    InMemoryPoolRepository,
+)
+from app.services.defi.infrastructure.repositories.in_memory_token_repository import (
+    InMemoryTokenRepository,
+)
+from app.services.defi.infrastructure.services.in_memory_swap_service import (
+    InMemorySwapService,
+)
+from app.token_services import (
+    prepare_contract_interaction_data,
+)
 
-app = FastAPI(title="FastChainBank")
+
+def _get_database_url() -> str:
+    """Read database URL from environment variables without exposing values."""
+    dsn = os.getenv("DEFI_DATABASE_URL")
+    if dsn:
+        return dsn
+    host = os.getenv("DB_HOST", "localhost")
+    port = os.getenv("DB_PORT", "5432")
+    user = os.getenv("DB_USER", "postgres")
+    password = os.getenv("DB_PASSWORD", "postgres")
+    name = os.getenv("DB_NAME", "blockchain_db")
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
+
+
+def _get_auth_database_url() -> str:
+    """Read auth database URL from environment variables."""
+    dsn = os.getenv("AUTH_DATABASE_URL")
+    if dsn:
+        return dsn
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    user = os.getenv("POSTGRES_USER", "postgres")
+    password = os.getenv("POSTGRES_PASSWORD", "postgres")
+    name = os.getenv("POSTGRES_DB", "fastchainbank")
+    return f"postgresql://{user}:{password}@{host}:{port}/{name}"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db_url = _get_database_url()
+    token_repo = InMemoryTokenRepository(database_url=db_url)
+    pool_repo = InMemoryPoolRepository(database_url=db_url)
+    ohlcv_repo = InMemoryOHLCVRepository(database_url=db_url)
+    price_oracle = InMemoryPriceOracle()
+    swap_service = InMemorySwapService()
+    app.state.defi_quote_service = QuoteService(
+        token_repository=token_repo,
+        pool_repository=pool_repo,
+        price_oracle=price_oracle,
+        swap_service=swap_service,
+        ohlcv_repository=ohlcv_repo,
+    )
+    app.state.defi_ohlcv_repository = ohlcv_repo
+    # Serviços DeFi centralizados aqui — dependencies apenas consomem via Depends(app.state).
+    from app.services.defi.application.chain_config_service import ChainConfigService
+    from app.services.defi.application.index_service import IndexService
+    from app.services.defi.infrastructure.config.settings import DeFiSettings
+    from app.services.defi.infrastructure.persistence.database import Database as DeFiDatabase
+    from app.services.defi.infrastructure.persistence.platform_secrets_service import (
+        PlatformSecretsService,
+    )
+
+    app.state.platform_secrets_service = PlatformSecretsService(DeFiDatabase(_get_database_url()))
+    app.state.chain_config_service = ChainConfigService(DeFiSettings())
+    app.state.index_service = IndexService()
+    tokenization_repo = DynamoDBTemplateRepository()
+    tokenization_audit = DynamoDBTemplateAuditLogger()
+    app.state.tokenization_catalog_service = TemplateCatalogService(
+        template_repository=tokenization_repo,
+        audit_logger=tokenization_audit,
+    )
+    choice_repo = DynamoDBChoiceRepository()
+    postgres_choices = PostgresChoiceRepository(TokenizationDatabase(db_url))
+    from app.services.tokenization.infrastructure.persistence.dynamodb_diagnosis_repository import DynamoDBDiagnosisRepository
+    from app.services.tokenization.infrastructure.persistence.dynamodb_llm_history_repository import DynamoDBLLMHistoryRepository
+    from app.services.tokenization.infrastructure.config.settings import TokenizationSettings
+    from app.services.tokenization.infrastructure.llm.factory import get_diagnosis_adapter, get_reorder_adapter
+    from app.services.tokenization.application.diagnosis_service import DiagnosisService
+    from app.services.tokenization.application.journey_service import JourneyService
+    from app.services.tokenization.application.recommendation_service import RecommendationService
+    from app.services.tokenization.infrastructure.repositories.in_memory_template_repository import (
+        InMemoryTemplateRepository,
+    )
+
+    settings = TokenizationSettings()
+    llm_history_repo = DynamoDBLLMHistoryRepository()
+    diagnosis_repo = DynamoDBDiagnosisRepository()
+    # RecommendationChoiceService uses factory internally; inject settings to allow provider switch
+    app.state.choice_service = RecommendationChoiceService(
+        template_repository=tokenization_repo,
+        choice_repository=choice_repo,
+        postgres_choices=postgres_choices,
+        llm_history_repository=llm_history_repo,
+        diagnosis_repository=diagnosis_repo,
+        settings=settings,
+    )
+    app.state.llm_history_repository = llm_history_repo
+    app.state.diagnosis_repository = diagnosis_repo
+    # AI-powered diagnosis: provider swappable via settings.llm_provider (groq/grok)
+    try:
+        diag_llm_adapter = get_diagnosis_adapter(settings)
+    except Exception:
+        diag_llm_adapter = None
+    app.state.diagnosis_service = DiagnosisService(
+        llm_adapter=diag_llm_adapter,
+        diagnosis_repository=diagnosis_repo,
+        settings=settings,
+    )
+    # Journey usa o mesmo diagnosis_service (LLM-enabled) + catálogo em memória com seed.
+    # Construção centralizada aqui — routers apenas consomem via Depends(app.state).
+    journey_repo = InMemoryTemplateRepository(load_seed=True)
+    app.state.recommendation_service = RecommendationService(journey_repo)
+    app.state.journey_service = JourneyService(
+        app.state.diagnosis_service, app.state.recommendation_service
+    )
+    # Also expose reorder adapter for introspection
+    try:
+        app.state.llm_reorder_adapter = get_reorder_adapter(settings)
+    except Exception:
+        app.state.llm_reorder_adapter = None
+    auth_db_url = _get_auth_database_url()
+    app.state.auth_service = AuthService(dsn=auth_db_url)
+    await app.state.auth_service.connect()
+    yield
+    await app.state.auth_service.close()
+
+
+app = FastAPI(title="FastChainBank", lifespan=lifespan)
+app.include_router(defi_router)
+app.include_router(aux_router)
+app.include_router(tokenization_router)
+app.include_router(journey_router)
+app.include_router(choice_router)
+app.include_router(auth_router)
 
 
 class ERC20Properties(BaseModel):
@@ -14,43 +173,49 @@ class ERC20Properties(BaseModel):
     initial_supply: int
     decimals: int = 18
 
+
 class ContractCodeResponse(BaseModel):
     solidity_code: str
+
 
 class TokenServiceRequest(BaseModel):
     contract_address: str
     function_name: str
-    args: List[Any]
+    args: list[Any]
+
 
 class TokenServiceResponse(BaseModel):
-    data: Dict[str, Any]
-
+    data: dict[str, Any]
 
 
 @app.get("/")
-async def root():
+async def root(payload: dict = Depends(get_current_token)):
     return {"message": "Smart Contract Generator API"}
 
 
-
 @app.post("/generate/erc20/", response_model=ContractCodeResponse)
-async def generate_erc20_contract(properties: ERC20Properties):
+async def generate_erc20_contract(
+    properties: ERC20Properties,
+    payload: dict = Depends(get_current_token),
+):
     generator = ERC20ContractGenerator()
     code = generator.generate_contract(
         name=properties.name,
         symbol=properties.symbol,
         initial_supply=properties.initial_supply,
-        decimals=properties.decimals
+        decimals=properties.decimals,
     )
     return ContractCodeResponse(solidity_code=code)
 
 
-
 @app.post("/service/prepare-contract-interaction/", response_model=TokenServiceResponse)
-async def prepare_interaction_data(request: TokenServiceRequest):
+async def prepare_interaction_data(
+    request: TokenServiceRequest,
+    payload: dict = Depends(get_current_token),
+):
     result = prepare_contract_interaction_data(
         contract_address=request.contract_address,
         function_name=request.function_name,
-        args=request.args
+        args=request.args,
     )
     return TokenServiceResponse(data=result)

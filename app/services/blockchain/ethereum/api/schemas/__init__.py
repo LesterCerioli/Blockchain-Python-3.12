@@ -3,6 +3,6 @@ from .network import NetworkResponse
 
 __all__ = [
     "HealthResponse",
-    "ProviderHealthSchema",
     "NetworkResponse",
+    "ProviderHealthSchema",
 ]

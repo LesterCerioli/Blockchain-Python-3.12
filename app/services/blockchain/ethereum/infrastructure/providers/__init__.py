@@ -5,8 +5,8 @@ from .rpc_provider import RpcProvider
 
 __all__ = [
     "BaseProvider",
-    "ProviderConfig",
     "MultiProvider",
+    "ProviderConfig",
     "ProviderFactory",
     "RpcProvider",
 ]

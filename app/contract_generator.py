@@ -1,8 +1,15 @@
-class SmartContractGenerator:
-    """
-    Base class for smart contract generators.
-    """
-    pass
+from abc import ABC, abstractmethod
+
+
+class SmartContractGenerator(ABC):
+    """Base class for smart contract generators."""
+
+    @abstractmethod
+    def generate_contract(
+        self, name: str, symbol: str, initial_supply: int, decimals: int = 18
+    ) -> str:
+        """Generate Solidity source code for a token contract."""
+        raise NotImplementedError
 
 
 class ERC20ContractGenerator(SmartContractGenerator):
@@ -10,7 +17,9 @@ class ERC20ContractGenerator(SmartContractGenerator):
     Generates Solidity code for a basic ERC20 token.
     """
 
-    def generate_contract(self, name: str, symbol: str, initial_supply: int, decimals: int = 18) -> str:
+    def generate_contract(
+        self, name: str, symbol: str, initial_supply: int, decimals: int = 18
+    ) -> str:
         """
         Generates the Solidity code for a basic ERC20 token.
 
@@ -25,6 +34,7 @@ class ERC20ContractGenerator(SmartContractGenerator):
         """
         adjusted_initial_supply = initial_supply * (10**decimals)
 
+        # fmt: off
         return f"""\
 
 pragma solidity ^0.8.0;
@@ -71,3 +81,4 @@ contract {name} {{
     }}
 }}
 """
+        # fmt: on

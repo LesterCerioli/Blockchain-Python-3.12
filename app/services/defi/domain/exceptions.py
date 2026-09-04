@@ -1,5 +1,19 @@
 class DeFiError(Exception):
-    """Base exception for all DeFi bounded-context errors."""
+    
+    def __init__(self, message: str = "") -> None:
+        super().__init__(message)
+
+
+class InvalidOHLCVIntervalError(DeFiError):
+    def __init__(self, interval: str) -> None:
+        super().__init__(f"Invalid OHLCV interval: {interval}")
+        self.interval = interval
+
+
+class OHLCVRangeExceededError(DeFiError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
 
 
 class TokenNotFoundError(DeFiError):
@@ -59,3 +73,9 @@ class PositionNotFoundError(DeFiError):
     def __init__(self, position_id: str) -> None:
         super().__init__(f"Position not found: id={position_id}")
         self.position_id = position_id
+
+
+class IndexNotFoundError(DeFiError):
+    def __init__(self, code: str) -> None:
+        super().__init__(f"Index not found: {code}")
+        self.code = code

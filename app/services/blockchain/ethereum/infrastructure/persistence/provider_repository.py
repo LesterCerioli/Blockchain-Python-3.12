@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -11,7 +10,6 @@ from .models import EthProviderModel
 
 
 class PostgresProviderRepository(IProviderRepository):
-    
     def __init__(self, db: Database) -> None:
         self._db = db
 
@@ -20,7 +18,7 @@ class PostgresProviderRepository(IProviderRepository):
             result = await session.execute(select(EthProviderModel))
             return [self._to_entity(row) for row in result.scalars().all()]
 
-    async def get_by_name(self, name: str) -> Optional[ProviderRecord]:
+    async def get_by_name(self, name: str) -> ProviderRecord | None:
         async with self._db.session() as session:
             result = await session.execute(
                 select(EthProviderModel).where(EthProviderModel.name == name)

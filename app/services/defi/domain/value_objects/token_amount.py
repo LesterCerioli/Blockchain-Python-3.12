@@ -4,7 +4,6 @@ from decimal import Decimal
 
 @dataclass(frozen=True)
 class TokenAmount:
-    
     raw: int
     decimals: int
     token_address: str

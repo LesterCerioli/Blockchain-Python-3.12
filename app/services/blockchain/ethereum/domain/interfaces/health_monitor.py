@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -13,7 +13,6 @@ class ProviderHealth:
 
 
 class IHealthMonitor(ABC):
-    
     @abstractmethod
     async def check_health(self) -> list[ProviderHealth]: ...
 

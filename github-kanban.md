@@ -138,15 +138,26 @@ ABCs defining contracts between domain and infrastructure:
 # IMarketDataProvider
 async def get_quote(symbol: str) -> Quote: ...
 async def get_quotes(symbols: list[str]) -> list[Quote]: ...
-async def get_ohlcv(symbol: str, interval: str, from_ts: datetime, to_ts: datetime) -> list[OHLCVCandle]: ...
+async def get_ohlcv(
+    symbol: str, interval: str, from_ts: datetime, to_ts: datetime
+) -> list[OHLCVCandle]: ...
+
 
 # IWalletConnector
 async def validate_address(address: str) -> bool: ...
 async def resolve_ens(name: str) -> str | None: ...
 
+
 # ITransactionBuilder
-async def build_erc20_transfer(from_addr: str, to_addr: str, token: TokenAddress, amount: CryptoAmount, chain_id: ChainId) -> UnsignedTransaction: ...
+async def build_erc20_transfer(
+    from_addr: str,
+    to_addr: str,
+    token: TokenAddress,
+    amount: CryptoAmount,
+    chain_id: ChainId,
+) -> UnsignedTransaction: ...
 async def estimate_gas(tx: UnsignedTransaction) -> int: ...
+
 
 # IResearchRepository
 async def save(report: ResearchReport) -> None: ...
@@ -168,14 +179,34 @@ async def search(query: str, page: int, page_size: int) -> list[ResearchReport]:
 **Technical description**
 ```python
 class DeFiError(Exception): ...
+
+
 class MarketDataError(DeFiError): ...
+
+
 class ProviderUnavailableError(MarketDataError): ...
+
+
 class RateLimitError(MarketDataError): ...
+
+
 class WalletConnectionError(DeFiError): ...
+
+
 class InvalidAddressError(WalletConnectionError): ...
-class NonCustodialViolationError(DeFiError): ...  # raised when code attempts to touch a private key
+
+
+class NonCustodialViolationError(
+    DeFiError
+): ...  # raised when code attempts to touch a private key
+
+
 class SanctionedAddressError(DeFiError): ...
+
+
 class ToUNotAcceptedError(DeFiError): ...
+
+
 class IndexerLagError(DeFiError): ...
 ```
 
@@ -224,10 +255,12 @@ class PaginatedResponse(BaseModel, Generic[T]):
     page_size: int
     has_next: bool
 
+
 class ErrorResponse(BaseModel):
     error_code: str
     message: str
     request_id: str
+
 
 class HealthResponse(BaseModel):
     status: Literal["ok", "degraded", "down"]
@@ -248,8 +281,12 @@ class HealthResponse(BaseModel):
 **Technical description**
 ```python
 async def get_defi_settings() -> DeFiSettings: ...
-async def get_market_provider(settings: DeFiSettings = Depends(...)) -> IMarketDataProvider: ...
-async def get_wallet_service(settings: DeFiSettings = Depends(...)) -> WalletSessionService: ...
+async def get_market_provider(
+    settings: DeFiSettings = Depends(...),
+) -> IMarketDataProvider: ...
+async def get_wallet_service(
+    settings: DeFiSettings = Depends(...),
+) -> WalletSessionService: ...
 async def get_current_wallet_session(token: str = Header(...)) -> WalletSession: ...
 ```
 `get_current_wallet_session` validates the session token and returns the session; raises HTTP 401 if invalid.
@@ -268,9 +305,19 @@ async def get_current_wallet_session(token: str = Header(...)) -> WalletSession:
 **Technical description**  
 Add `openapi_tags` in `FastAPI(...)` with explicit descriptions:
 ```python
-{"name": "DeFi – Quotes", "description": "Read-only market data. Zero license."},
-{"name": "DeFi – Wallet", "description": "Non-custodial connection. Keys never leave the client."},
-{"name": "DeFi – Research", "description": "Impersonal content published equally to all subscribers."},
+({"name": "DeFi – Quotes", "description": "Read-only market data. Zero license."},)
+(
+    {
+        "name": "DeFi – Wallet",
+        "description": "Non-custodial connection. Keys never leave the client.",
+    },
+)
+(
+    {
+        "name": "DeFi – Research",
+        "description": "Impersonal content published equally to all subscribers.",
+    },
+)
 ```
 
 **DoD**
@@ -325,10 +372,14 @@ Use `SecretStr` for all API keys — never plain `str` for secrets.
 Add to `DeFiSettings`:
 ```python
 chains: dict[int, ChainConfig] = {
-    1:     ChainConfig(name="Ethereum Mainnet",  rpc_url="...", explorer="https://etherscan.io"),
-    137:   ChainConfig(name="Polygon",           rpc_url="...", explorer="https://polygonscan.com"),
-    42161: ChainConfig(name="Arbitrum One",      rpc_url="...", explorer="https://arbiscan.io"),
-    8453:  ChainConfig(name="Base",              rpc_url="...", explorer="https://basescan.org"),
+    1: ChainConfig(
+        name="Ethereum Mainnet", rpc_url="...", explorer="https://etherscan.io"
+    ),
+    137: ChainConfig(name="Polygon", rpc_url="...", explorer="https://polygonscan.com"),
+    42161: ChainConfig(
+        name="Arbitrum One", rpc_url="...", explorer="https://arbiscan.io"
+    ),
+    8453: ChainConfig(name="Base", rpc_url="...", explorer="https://basescan.org"),
 }
 ```
 Where `ChainConfig` has `name`, `rpc_url: SecretStr`, `explorer: str`, `is_testnet: bool = False`.
@@ -518,7 +569,9 @@ class QuoteService:
     def __init__(self, provider: IMarketDataProvider, cache: IQuoteCache): ...
     async def get_quote(self, symbol: str) -> Quote: ...
     async def get_quotes(self, symbols: list[str]) -> list[Quote]: ...
-    async def get_ohlcv(self, symbol: str, interval: str, from_ts: datetime, to_ts: datetime) -> list[OHLCVCandle]: ...
+    async def get_ohlcv(
+        self, symbol: str, interval: str, from_ts: datetime, to_ts: datetime
+    ) -> list[OHLCVCandle]: ...
 ```
 Cache-aside: tries cache first; on miss, calls provider and populates cache.
 
@@ -635,7 +688,9 @@ Implements `IQuoteCache` interface:
 class IndexService:
     async def list_indices(self) -> list[MarketIndex]: ...
     async def get_index(self, index_id: str) -> MarketIndex: ...
-    async def get_token_rankings(self, metric: str, chain: str | None, page: int, page_size: int) -> PaginatedResponse[TokenRanking]: ...
+    async def get_token_rankings(
+        self, metric: str, chain: str | None, page: int, page_size: int
+    ) -> PaginatedResponse[TokenRanking]: ...
     async def get_protocol_rankings(self, metric: str) -> list[ProtocolRanking]: ...
 ```
 
@@ -928,7 +983,15 @@ Using standard ERC-20 ABI and `web3.py`:
 **Technical description**  
 `BaseHTTPMiddleware` that inspects each request body:
 ```python
-FORBIDDEN_FIELDS = {"private_key", "seed_phrase", "mnemonic", "keystore", "secret_key", "privateKey", "seedPhrase"}
+FORBIDDEN_FIELDS = {
+    "private_key",
+    "seed_phrase",
+    "mnemonic",
+    "keystore",
+    "secret_key",
+    "privateKey",
+    "seedPhrase",
+}
 ```
 If any JSON body key matches `FORBIDDEN_FIELDS` (case-insensitive), returns HTTP 422:
 ```json
@@ -1099,7 +1162,9 @@ Response 200: {
 **Technical description**  
 Uses `Multicall3` contract (address `0xcA11bde05977b3631167028862bE2a173976CA11` — same on all EVM chains) to make multiple `eth_call` in a single RPC call:
 ```python
-async def get_erc20_balances(wallet: str, tokens: list[str], chain_id: int) -> dict[str, int]:
+async def get_erc20_balances(
+    wallet: str, tokens: list[str], chain_id: int
+) -> dict[str, int]:
     calls = [(token, erc20_abi.encodeABI("balanceOf", [wallet])) for token in tokens]
     results = await multicall3.functions.aggregate3(calls).call()
     return {token: decode_balance(result) for token, result in zip(tokens, results)}
@@ -1180,13 +1245,13 @@ Content published equally to all subscribers. **No personalization by profile, w
 @dataclass
 class ResearchReport:
     report_id: UUID
-    title: str              # max 200 chars
-    body_markdown: str      # Markdown content
-    summary: str            # max 500 chars, generated or manual
+    title: str  # max 200 chars
+    body_markdown: str  # Markdown content
+    summary: str  # max 500 chars, generated or manual
     published_at: datetime
-    categories: list[str]   # e.g. ["market-analysis", "defi-protocols"]
+    categories: list[str]  # e.g. ["market-analysis", "defi-protocols"]
     tags: list[str]
-    version: int            # increments on each edit
+    version: int  # increments on each edit
     author_type: Literal["editorial", "automated"]  # never "user"
 ```
 **Without fields**: `user_id`, `wallet_address`, `subscriber_id`, `personalized_for`.
@@ -1420,7 +1485,13 @@ Workers, queues, on-chain event indexer and reconciliation. Infrastructure suppo
 **Technical description**
 ```python
 class WorkerSettings:
-    functions = [confirm_transaction, update_prices, index_events, refresh_rankings, reconcile_balances]
+    functions = [
+        confirm_transaction,
+        update_prices,
+        index_events,
+        refresh_rankings,
+        reconcile_balances,
+    ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     queue_name = "defi"
     max_jobs = 10
@@ -1557,11 +1628,11 @@ Persists `last_indexed_block` in Redis for resumption after restart.
 ```python
 TRANSFER_TOPIC = web3.keccak(text="Transfer(address,address,uint256)").hex()
 
+
 async def index_block(self, block_number: int):
-    logs = await web3.eth.get_logs({
-        "fromBlock": block_number, "toBlock": block_number,
-        "topics": [TRANSFER_TOPIC]
-    })
+    logs = await web3.eth.get_logs(
+        {"fromBlock": block_number, "toBlock": block_number, "topics": [TRANSFER_TOPIC]}
+    )
     for log in logs:
         await self.save_event(log)
 ```
@@ -1691,7 +1762,7 @@ On `BlockListener` startup:
 last_indexed = await redis.get("defi:indexer:last_block:1")
 current = await web3.eth.block_number
 if current - last_indexed > 1:
-    await enqueue_task("index_events", from_block=last_indexed+1, to_block=current)
+    await enqueue_task("index_events", from_block=last_indexed + 1, to_block=current)
 ```
 
 **DoD**
@@ -1776,7 +1847,9 @@ If address found and `is_sanctioned=True`: returns HTTP 403:
 **Technical description**  
 List of blocked country codes per OFAC country programs (Cuba, Iran, North Korea, Syria, Russia-specific, Crimea):
 ```python
-BLOCKED_COUNTRIES = frozenset(["CU", "IR", "KP", "SY", "RU"])  # illustrative; review with legal counsel
+BLOCKED_COUNTRIES = frozenset(
+    ["CU", "IR", "KP", "SY", "RU"]
+)  # illustrative; review with legal counsel
 ```
 Check based on request IP (via `X-Forwarded-For` or Cloudflare `CF-IPCountry` header).
 
@@ -1835,7 +1908,7 @@ Ensure the middleware is active on **all** `/api/v1/defi/` routes, not just tran
 **Technical description**  
 Inside `TransactionBuilderService.build()`, after building the tx:
 ```python
-if hasattr(result, 'v') or hasattr(result, 'signature'):
+if hasattr(result, "v") or hasattr(result, "signature"):
     raise NonCustodialViolationError(violation_type="server_signed_transaction")
 ```
 Also: the service must not import `eth_account` — if ABI encoding is needed, use `web3.py` only.
@@ -1854,6 +1927,7 @@ Also: the service must not import `eth_account` — if ABI encoding is needed, u
 ```python
 import ast, pathlib
 
+
 def test_no_sign_transaction_in_defi():
     for py_file in pathlib.Path("services/defi").rglob("*.py"):
         tree = ast.parse(py_file.read_text())
@@ -1861,13 +1935,16 @@ def test_no_sign_transaction_in_defi():
             if isinstance(node, ast.Attribute) and node.attr == "sign_transaction":
                 pytest.fail(f"sign_transaction found in {py_file}")
 
+
 def test_no_eth_account_import():
     for py_file in pathlib.Path("services/defi").rglob("*.py"):
         tree = ast.parse(py_file.read_text())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    assert "eth_account" not in alias.name, f"eth_account imported in {py_file}"
+                    assert "eth_account" not in alias.name, (
+                        f"eth_account imported in {py_file}"
+                    )
 ```
 
 **DoD**
@@ -1909,9 +1986,9 @@ class AuditEntry:
     request_id: UUID
     user_id: str | None
     wallet_address: str | None  # public address only
-    endpoint: str               # e.g. "POST /api/v1/defi/transactions/broadcast"
+    endpoint: str  # e.g. "POST /api/v1/defi/transactions/broadcast"
     method: str
-    payload_hash: str           # sha256 of body (not the body itself)
+    payload_hash: str  # sha256 of body (not the body itself)
     ip_address: str
     response_status: int
     duration_ms: int
@@ -2030,7 +2107,10 @@ Applied to all `/api/v1/defi/` routes except `GET /defi/health` and `POST /defi/
 if not await tou_service.has_accepted(user_id):
     return JSONResponse(
         status_code=403,
-        content={"error_code": "tou_required", "accept_url": "/api/v1/defi/terms/accept"}
+        content={
+            "error_code": "tou_required",
+            "accept_url": "/api/v1/defi/terms/accept",
+        },
     )
 ```
 
@@ -2068,7 +2148,7 @@ Persists in `defi_tou_acceptances(user_id, version, accepted_at, ip_address)`.
 ```python
 @dataclass
 class TermsOfUse:
-    version: str         # semver: "1.0", "1.1", "2.0"
+    version: str  # semver: "1.0", "1.1", "2.0"
     published_at: datetime
     requires_reaccept: bool  # True for major versions (x.0)
     content_url: str
@@ -2175,13 +2255,13 @@ Parameters: `uri` (base URI), `owner`.
 ```python
 @dataclass(frozen=True)
 class ContractTemplate:
-    template_id: str              # e.g. "erc20-v1"
-    version: str                  # semver
-    standard: Literal["ERC20","ERC721","ERC1155"]
-    bytecode: str                 # compiled bytecode hex
+    template_id: str  # e.g. "erc20-v1"
+    version: str  # semver
+    standard: Literal["ERC20", "ERC721", "ERC1155"]
+    bytecode: str  # compiled bytecode hex
     abi: list[dict]
-    audit_report_url: str         # mandatory — without URL, template cannot be used
-    is_active: bool               # only active templates can be deployed
+    audit_report_url: str  # mandatory — without URL, template cannot be used
+    is_active: bool  # only active templates can be deployed
 ```
 The platform only permits deployment of templates with `is_active=True` and `audit_report_url != ""`.
 

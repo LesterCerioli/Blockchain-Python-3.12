@@ -4,7 +4,6 @@ from decimal import Decimal
 
 @dataclass(frozen=True)
 class Slippage:
-    
     bps: int
 
     def __post_init__(self) -> None:
