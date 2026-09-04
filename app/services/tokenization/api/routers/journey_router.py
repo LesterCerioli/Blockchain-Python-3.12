@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import TYPE_CHECKING
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.services.auth.api.dependencies import get_current_token
 from app.services.tokenization.api.schemas.journey_schemas import (
@@ -15,25 +17,59 @@ from app.services.tokenization.api.schemas.journey_schemas import (
     TemplateRecommendationResponse,
     TokenizationPlanResponse,
 )
-from app.services.tokenization.application.diagnosis_service import DiagnosisService
-from app.services.tokenization.application.journey_service import JourneyService
-from app.services.tokenization.application.recommendation_service import (
-    RecommendationService,
-)
 from app.services.tokenization.domain.entities.business_objective import BusinessObjective
-from app.services.tokenization.infrastructure.repositories.in_memory_template_repository import (
-    InMemoryTemplateRepository,
-)
+
+if TYPE_CHECKING:  # apenas para hints — nenhuma construção de serviço nesta camada
+    from app.services.tokenization.application.diagnosis_service import DiagnosisService
+    from app.services.tokenization.application.journey_service import JourneyService
+    from app.services.tokenization.application.recommendation_service import (
+        RecommendationService,
+    )
 
 router = APIRouter(
     prefix="/tokenization/journey",
     tags=["Tokenization Journey"],
 )
 
-_in_memory_repo = InMemoryTemplateRepository()
-_diagnosis_service = DiagnosisService()
-_recommendation_service = RecommendationService(_in_memory_repo)
-_journey_service = JourneyService(_diagnosis_service, _recommendation_service)
+
+def _missing(name: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"{name} not configured",
+    )
+
+
+def get_diagnosis_service(request: Request) -> DiagnosisService:
+    """Resolve via lifespan (app.state). Nenhum serviço é construído aqui."""
+    try:
+        svc = request.app.state.diagnosis_service  # type: ignore[attr-defined]
+    except AttributeError:
+        svc = None
+    if svc is None:
+        raise _missing("diagnosis_service")
+    return svc
+
+
+def get_journey_service(request: Request) -> JourneyService:
+    """Resolve via lifespan (app.state). Nenhum serviço é construído aqui."""
+    try:
+        svc = request.app.state.journey_service  # type: ignore[attr-defined]
+    except AttributeError:
+        svc = None
+    if svc is None:
+        raise _missing("journey_service")
+    return svc
+
+
+def get_recommendation_service(request: Request) -> RecommendationService:
+    """Resolve via lifespan (app.state). Nenhum serviço é construído aqui."""
+    try:
+        svc = request.app.state.recommendation_service  # type: ignore[attr-defined]
+    except AttributeError:
+        svc = None
+    if svc is None:
+        raise _missing("recommendation_service")
+    return svc
 
 
 @router.post(
@@ -42,11 +78,14 @@ _journey_service = JourneyService(_diagnosis_service, _recommendation_service)
     summary="Start the tokenization journey",
     description=(
         "Analyze a natural-language business objective and return a diagnosis "
-        "with recommended tokenization strategies."
+        "with recommended tokenization strategies. "
+        "AI-powered: uses configured LLM provider (groq/grok) if available, fallback to keyword."
     ),
 )
 async def start_journey(
     request: ObjectiveInputRequest,
+    diag_svc=Depends(get_diagnosis_service),  # noqa: B008
+    journey_svc=Depends(get_journey_service),  # noqa: B008
     _token: dict = Depends(get_current_token),
 ) -> StartJourneyResponse:
     objective = BusinessObjective(
@@ -59,10 +98,18 @@ async def start_journey(
         target_audience=request.target_audience,
     )
 
-    diagnosis, strategies = await _journey_service.start_journey(objective)
+    # Prefer LLM diagnosis if adapter present and method exists
+    if hasattr(diag_svc, "diagnose_with_llm"):
+        try:
+            diagnosis = await diag_svc.diagnose_with_llm(objective)  # type: ignore[attr-defined]
+        except Exception:
+            diagnosis = diag_svc.diagnose(objective)
+        strategies = await journey_svc._recommendation.recommend_strategies(objective, diagnosis)
+    else:
+        diagnosis, strategies = await journey_svc.start_journey(objective)
 
     if not strategies:
-        fallback = await _journey_service.get_fallback_options()
+        fallback = await journey_svc.get_fallback_options()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=fallback,
@@ -90,6 +137,8 @@ async def start_journey(
 async def select_strategy(
     request: SelectStrategyRequest,
     objective: ObjectiveInputRequest = Depends(),
+    diag_svc=Depends(get_diagnosis_service),  # noqa: B008
+    journey_svc=Depends(get_journey_service),  # noqa: B008
     _token: dict = Depends(get_current_token),
 ) -> SelectStrategyResponse:
     obj = BusinessObjective(
@@ -102,8 +151,8 @@ async def select_strategy(
         target_audience=objective.target_audience,
     )
 
-    diagnosis = _diagnosis_service.diagnose(obj)
-    templates, strategy = await _journey_service.select_strategy(
+    diagnosis = diag_svc.diagnose(obj)
+    templates, strategy = await journey_svc.select_strategy(
         obj, diagnosis, request.strategy_code,
     )
 
@@ -114,7 +163,7 @@ async def select_strategy(
         )
 
     if not templates:
-        fallback = await _journey_service.get_fallback_options()
+        fallback = await journey_svc.get_fallback_options()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=fallback,
@@ -142,6 +191,9 @@ async def select_template(
     request: SelectTemplateRequest,
     objective: ObjectiveInputRequest = Depends(),
     strategy_code: str = "",
+    diag_svc=Depends(get_diagnosis_service),  # noqa: B008
+    recommendation_svc=Depends(get_recommendation_service),  # noqa: B008
+    journey_svc=Depends(get_journey_service),  # noqa: B008
     _token: dict = Depends(get_current_token),
 ) -> SelectTemplateResponse:
     obj = BusinessObjective(
@@ -154,8 +206,8 @@ async def select_template(
         target_audience=objective.target_audience,
     )
 
-    diagnosis = _diagnosis_service.diagnose(obj)
-    strategies = await _recommendation_service.recommend_strategies(obj, diagnosis)
+    diagnosis = diag_svc.diagnose(obj)
+    strategies = await recommendation_svc.recommend_strategies(obj, diagnosis)
 
     selected_strategy = None
     if strategy_code:
@@ -171,8 +223,8 @@ async def select_template(
             detail="No strategy selected. Provide a strategy_code.",
         )
 
-    plan = await _journey_service.select_template(
-        obj, diagnosis, selected_strategy, request.template_id, request.customization,
+    plan = await journey_svc.select_template(
+        obj, diagnosis, selected_strategy, request.template_name, request.customization,
     )
 
     return SelectTemplateResponse(
@@ -192,9 +244,10 @@ async def select_template(
     description="Returns alternative options when no suitable template is found.",
 )
 async def get_fallback_options(
+    journey_svc=Depends(get_journey_service),  # noqa: B008
     _token: dict = Depends(get_current_token),
 ) -> FallbackResponse:
-    options = await _journey_service.get_fallback_options()
+    options = await journey_svc.get_fallback_options()
     return FallbackResponse(**options)
 
 

@@ -6,6 +6,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.services.auth.api.dependencies import get_current_token
 from app.services.defi.api.dependencies import get_market_quote_service
 from app.services.defi.api.routers.quotes_router import quotes_router
 from app.services.defi.application.quote_service import QuoteService
@@ -13,9 +14,14 @@ from app.services.defi.domain.entities.asset_quote import AssetQuote
 from app.services.defi.domain.value_objects.ohlcv_candle import OHLCVCandle
 
 
+async def _mock_token():
+    return {"sub": "test", "iss": "auth_service", "type": "m2m"}
+
+
 def _make_client(mock_service: QuoteService) -> TestClient:
     app = FastAPI()
     app.dependency_overrides[get_market_quote_service] = lambda: mock_service
+    app.dependency_overrides[get_current_token] = _mock_token
     app.include_router(quotes_router)
     return TestClient(app)
 

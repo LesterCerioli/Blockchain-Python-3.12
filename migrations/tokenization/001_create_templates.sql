@@ -1,7 +1,3 @@
--- Migration 001: Create tokenization_templates table
--- Service: tokenization
--- Purpose: Stores tokenization template catalog with metadata,
---          characteristics, token model config, and business rules.
 
 CREATE TABLE IF NOT EXISTS tokenization_templates (
     id               UUID                        PRIMARY KEY DEFAULT gen_random_uuid(),

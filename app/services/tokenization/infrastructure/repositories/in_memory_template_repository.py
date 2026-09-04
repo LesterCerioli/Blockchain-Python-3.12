@@ -5,15 +5,22 @@ from app.services.tokenization.infrastructure.seed_data import SEED_TEMPLATES
 
 
 class InMemoryTemplateRepository(ITemplateRepository):
-    """In-memory template repository pre-loaded with seed data for journey service."""
+    """In-memory template repository. Optionally pre-loaded with seed data."""
 
-    def __init__(self) -> None:
+    def __init__(self, load_seed: bool = False) -> None:
         self._store: dict[str, Template] = {}
-        self._load_seed_data()
+        if load_seed:
+            self._load_seed_data()
 
     def _load_seed_data(self) -> None:
+        from app.services.tokenization.infrastructure.seed_data import SEED_TEMPLATES
+
         for template in SEED_TEMPLATES:
             self._store[template.template_id] = template
+
+    def load_seed(self) -> None:
+        """Explicitly load seed templates (idempotent for empty store)."""
+        self._load_seed_data()
 
     async def get_by_id(self, user_id: str, template_id: str) -> Template | None:
         return self._store.get(template_id)

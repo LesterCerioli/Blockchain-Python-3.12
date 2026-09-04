@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.services.auth.api.dependencies import get_current_token
 from .admin_router import admin_router
 from .chains_router import chains_router
 from .quotes_router import quotes_router
@@ -16,7 +17,7 @@ defi_router = APIRouter(prefix="/api/v1/defi", tags=["DeFi"])
     response_model=HealthResponse,
     summary="DeFi service health check",
 )
-async def defi_health() -> HealthResponse:
+async def defi_health(payload: dict = Depends(get_current_token)) -> HealthResponse:
     return HealthResponse(status=HealthStatus.OK)
 
 

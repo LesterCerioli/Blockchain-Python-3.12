@@ -13,7 +13,7 @@ from app.services.tokenization.infrastructure.repositories.in_memory_template_re
 
 class TestJourneyService:
     def setup_method(self):
-        self.repo = InMemoryTemplateRepository()
+        self.repo = InMemoryTemplateRepository(load_seed=True)
         self.diagnosis_service = DiagnosisService()
         self.recommendation_service = RecommendationService(self.repo)
         self.journey_service = JourneyService(
@@ -72,7 +72,7 @@ class TestJourneyService:
             objective, diagnosis, strategies[0],
         )
         plan = await self.journey_service.select_template(
-            objective, diagnosis, strategies[0], templates[0].template_id,
+            objective, diagnosis, strategies[0], templates[0].template_name,
         )
         assert plan.plan_id is not None
         assert plan.selected_strategy == strategies[0].strategy_name
@@ -116,7 +116,7 @@ class TestJourneyService:
         assert len(templates) > 0
 
         plan = await self.journey_service.select_template(
-            objective, diagnosis, strategy, templates[0].template_id,
+            objective, diagnosis, strategy, templates[0].template_name,
         )
         assert plan.plan_id is not None
         assert len(plan.steps) > 0

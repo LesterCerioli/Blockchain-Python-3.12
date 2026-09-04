@@ -93,9 +93,10 @@ class SelectStrategyResponse(BaseModel):
 
 
 class SelectTemplateRequest(BaseModel):
-    template_id: str = Field(
+    template_name: str = Field(
         ...,
-        examples=["tpl-loyalty-token"],
+        description="Name of the chosen template (natural identifier - never the record id)",
+        examples=["Loyalty Token"],
     )
     customization: dict | None = Field(
         default=None,

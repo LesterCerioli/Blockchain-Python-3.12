@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.services.auth.api.dependencies import get_current_token
 from ..dependencies import get_chain_config_service
 from ..schemas.chain_config import ChainConfigResponse
 from ...application.chain_config_service import ChainConfigService, ChainNotFoundError
@@ -15,6 +16,7 @@ chains_router = APIRouter(prefix="/chains", tags=["Chains"])
 async def list_chains(
     testnet: bool | None = Query(default=None, description="Filter by testnet (true/false). Omit for all chains."),
     service: ChainConfigService = Depends(get_chain_config_service),
+    payload: dict = Depends(get_current_token),
 ) -> list[ChainConfigResponse]:
     if testnet is True:
         entries = service.list_testnets()
@@ -37,6 +39,7 @@ async def list_chains(
 async def get_chain(
     chain_id: int,
     service: ChainConfigService = Depends(get_chain_config_service),
+    payload: dict = Depends(get_current_token),
 ) -> ChainConfigResponse:
     try:
         cfg = service.get_by_id(chain_id)

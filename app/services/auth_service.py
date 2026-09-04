@@ -51,7 +51,7 @@ class AuthService:
             client_secret, self._client_secret
         )
 
-    def _create_jwt(self, client_id: str) -> str:
+    def _create_jwt(self, client_id: str, token_id=None) -> str:
         now = datetime.now(timezone.utc)
         payload = {
             "sub": client_id,
@@ -59,6 +59,7 @@ class AuthService:
             "exp": now + timedelta(seconds=TOKEN_TTL_SECONDS),
             "iss": "auth_service",
             "type": "m2m",
+            "jti": str(token_id or uuid4()),
         }
         return jwt.encode(payload, self._private_key, algorithm="EdDSA")
 
@@ -78,7 +79,7 @@ class AuthService:
         expires_at = now + timedelta(seconds=TOKEN_TTL_SECONDS)
         token_id = uuid4()
 
-        jwt_token = self._create_jwt(client_id)
+        jwt_token = self._create_jwt(client_id, token_id=token_id)
 
         async with self._pool.acquire() as conn:
             await conn.execute(
