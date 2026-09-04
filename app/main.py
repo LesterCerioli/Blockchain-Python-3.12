@@ -13,8 +13,13 @@ from app.services.aux.api.routers import router as aux_router
 from app.services.defi.api.routers.defi_router import router as defi_router
 from app.services.tokenization.api.routers.tokenization_router import router as tokenization_router
 from app.services.tokenization.api.routers.journey_router import router as journey_router
+from app.services.tokenization.api.routers.choice_router import router as choice_router
 from app.services.tokenization.application.template_catalog_service import TemplateCatalogService
+from app.services.tokenization.application.recommendation_choice_service import RecommendationChoiceService
 from app.services.tokenization.infrastructure.persistence.dynamodb_template_repository import DynamoDBTemplateRepository
+from app.services.tokenization.infrastructure.persistence.dynamodb_choice_repository import DynamoDBChoiceRepository
+from app.services.tokenization.infrastructure.persistence.postgres_choice_repository import PostgresChoiceRepository
+from app.services.tokenization.infrastructure.persistence.database import TokenizationDatabase
 from app.services.tokenization.infrastructure.audit.dynamodb_template_audit_logger import DynamoDBTemplateAuditLogger
 from app.services.defi.application.quote_service import QuoteService
 from app.services.defi.infrastructure.oracles.in_memory_price_oracle import (
@@ -85,6 +90,13 @@ async def lifespan(app: FastAPI):
         template_repository=tokenization_repo,
         audit_logger=tokenization_audit,
     )
+    choice_repo = DynamoDBChoiceRepository()
+    postgres_choices = PostgresChoiceRepository(TokenizationDatabase(db_url))
+    app.state.choice_service = RecommendationChoiceService(
+        template_repository=tokenization_repo,
+        choice_repository=choice_repo,
+        postgres_choices=postgres_choices,
+    )
     auth_db_url = _get_auth_database_url()
     app.state.auth_service = AuthService(dsn=auth_db_url)
     await app.state.auth_service.connect()
@@ -97,6 +109,7 @@ app.include_router(defi_router)
 app.include_router(aux_router)
 app.include_router(tokenization_router)
 app.include_router(journey_router)
+app.include_router(choice_router)
 app.include_router(auth_router)
 
 

@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.services.auth.api.dependencies import get_current_token
 from ..dependencies import get_market_quote_service, get_quote_service
 from ..schemas.quote import CandleResponse, MarketQuoteResponse, OHLCVResponse, QuoteRequest, QuoteResponse
 from ...application.quote_service import QuoteService, SwapQuoteService
@@ -18,6 +19,7 @@ quotes_router = APIRouter(prefix="/quotes", tags=["DeFi – Quotes"])
 async def get_quote(
     body: QuoteRequest,
     quote_service: SwapQuoteService = Depends(get_quote_service),
+    payload: dict = Depends(get_current_token),
 ) -> QuoteResponse:
     result = await quote_service.get_quote(
         token_in_address=body.token_in,
@@ -37,6 +39,7 @@ async def get_quote(
 async def get_market_quote(
     symbol: str,
     market_quote_service: QuoteService = Depends(get_market_quote_service),
+    payload: dict = Depends(get_current_token),
 ) -> MarketQuoteResponse:
     quote = await market_quote_service.get_quote(symbol)
 
@@ -70,6 +73,7 @@ async def get_market_quotes(
         description="Comma-separated list of symbols (max 50)",
     ),
     market_quote_service: QuoteService = Depends(get_market_quote_service),
+    payload: dict = Depends(get_current_token),
 ) -> list[MarketQuoteResponse]:
     raw = [s.strip() for s in symbols.split(",") if s.strip()]
 
@@ -119,6 +123,7 @@ async def get_ohlcv_history(
         description="End of the range (ISO 8601)",
     ),
     market_quote_service: QuoteService = Depends(get_market_quote_service),
+    payload: dict = Depends(get_current_token),
 ) -> OHLCVResponse:
     if interval not in _VALID_INTERVALS:
         raise HTTPException(

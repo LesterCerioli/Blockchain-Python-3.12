@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 
 import os
 
@@ -93,7 +92,6 @@ tables = [
         "attribute_defs": [
             {"AttributeName": "id", "AttributeType": "S"},
             {"AttributeName": "user_id", "AttributeType": "S"},
-            {"AttributeName": "metadata_key", "AttributeType": "S"},
         ],
         "key_schema": [{"AttributeName": "id", "KeyType": "HASH"}],
         "gsis": [
@@ -250,6 +248,55 @@ tables = [
             {
                 "IndexName": "created_at_index",
                 "KeySchema": [{"AttributeName": "created_at", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
+    },
+    {
+        "name": "BLOCKCHAIN_ohlcv_candles",
+        "attribute_defs": [
+            {"AttributeName": "id", "AttributeType": "S"},
+            {"AttributeName": "symbol", "AttributeType": "S"},
+            {"AttributeName": "interval", "AttributeType": "S"},
+            {"AttributeName": "open_time", "AttributeType": "N"},
+        ],
+        "key_schema": [{"AttributeName": "id", "KeyType": "HASH"}],
+        "gsis": [
+            {
+                "IndexName": "symbol_interval_index",
+                "KeySchema": [
+                    {"AttributeName": "symbol", "KeyType": "HASH"},
+                    {"AttributeName": "interval", "KeyType": "RANGE"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+            {
+                "IndexName": "symbol_time_index",
+                "KeySchema": [
+                    {"AttributeName": "symbol", "KeyType": "HASH"},
+                    {"AttributeName": "open_time", "KeyType": "RANGE"},
+                ],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+        ],
+    },
+    {
+        "name": "BLOCKCHAIN_positions",
+        "attribute_defs": [
+            {"AttributeName": "id", "AttributeType": "S"},
+            {"AttributeName": "user_id", "AttributeType": "S"},
+            {"AttributeName": "pool_address", "AttributeType": "S"},
+        ],
+        "key_schema": [{"AttributeName": "id", "KeyType": "HASH"}],
+        "gsis": [
+            {
+                "IndexName": "user_index",
+                "KeySchema": [{"AttributeName": "user_id", "KeyType": "HASH"}],
+                "Projection": {"ProjectionType": "ALL"},
+            },
+            {
+                "IndexName": "pool_index",
+                "KeySchema": [{"AttributeName": "pool_address", "KeyType": "HASH"}],
                 "Projection": {"ProjectionType": "ALL"},
             },
         ],

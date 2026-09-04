@@ -1,3 +1,4 @@
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,3 +13,7 @@ class TokenizationSettings(BaseSettings):
     dynamodb_endpoint: str = "http://localhost:4566"
     dynamodb_region: str = "us-east-1"
     audit_log_enabled: bool = True
+    groq_api_key: SecretStr | None = None
+    groq_model: str = "llama-3.1-70b-versatile"
+    groq_timeout_seconds: int = 10
+    groq_enabled: bool = True

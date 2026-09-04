@@ -2,8 +2,8 @@ import os
 
 import boto3
 
-os.environ.setdefault("AWS_ACCESS_KEY_ID")
-os.environ.setdefault("AWS_SECRET_ACCESS_KEY")
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "test")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "test")
 
 c = boto3.client(
     "dynamodb", endpoint_url="http://localhost:4566", region_name="us-east-1"
