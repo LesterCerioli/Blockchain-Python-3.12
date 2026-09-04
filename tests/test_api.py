@@ -7,11 +7,20 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.main import app  # Import the FastAPI app instance
+from app.services.auth.api.dependencies import get_current_token
+
+
+async def _mock_token():
+    return {"sub": "test_client", "iss": "auth_service", "type": "m2m"}
 
 
 class TestAPI(unittest.TestCase):
     def setUp(self):
+        app.dependency_overrides[get_current_token] = _mock_token
         self.client = TestClient(app)
+
+    def tearDown(self):
+        app.dependency_overrides.pop(get_current_token, None)
 
     def test_read_root(self):
         response = self.client.get("/")
@@ -92,6 +101,34 @@ class TestAPI(unittest.TestCase):
             "/service/prepare-contract-interaction/", json=payload
         )
         self.assertEqual(response.status_code, 422)
+
+
+class TestAuthRequired(unittest.TestCase):
+    def setUp(self):
+        app.dependency_overrides.pop(get_current_token, None)
+        self.client = TestClient(app)
+
+    def test_read_root_requires_token(self):
+        response = self.client.get("/")
+        self.assertIn(response.status_code, (401, 403))
+
+    def test_generate_erc20_requires_token(self):
+        response = self.client.post(
+            "/generate/erc20/",
+            json={"name": "X", "symbol": "X", "initial_supply": 1},
+        )
+        self.assertIn(response.status_code, (401, 403))
+
+    def test_prepare_interaction_requires_token(self):
+        response = self.client.post(
+            "/service/prepare-contract-interaction/",
+            json={
+                "contract_address": "0x123",
+                "function_name": "transfer",
+                "args": [],
+            },
+        )
+        self.assertIn(response.status_code, (401, 403))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 
+from app.services.auth.api.dependencies import get_current_token
 from ..dependencies import get_platform_secrets_service
 from ..schemas.platform_secrets import (
     PlatformSecretCreate,
@@ -25,6 +26,7 @@ admin_router = APIRouter(prefix="/admin/secrets", tags=["Admin — Platform Secr
 async def create_secret(
     body: PlatformSecretCreate,
     service: PlatformSecretsService = Depends(get_platform_secrets_service),
+    payload: dict = Depends(get_current_token),
 ) -> PlatformSecretResponse:
     try:
         row = await service.create(
@@ -49,6 +51,7 @@ async def create_secret(
 )
 async def list_secrets(
     service: PlatformSecretsService = Depends(get_platform_secrets_service),
+    payload: dict = Depends(get_current_token),
 ) -> list[PlatformSecretResponse]:
     rows = await service.list_all()
     return [PlatformSecretResponse(**row) for row in rows]
@@ -63,6 +66,7 @@ async def list_secrets(
 async def get_secret(
     key_name: str,
     service: PlatformSecretsService = Depends(get_platform_secrets_service),
+    payload: dict = Depends(get_current_token),
 ) -> PlatformSecretResponse:
     row = await service.get_by_key_name(key_name)
     if row is None:
@@ -86,6 +90,7 @@ async def update_secret(
     key_name: str,
     body: PlatformSecretUpdate,
     service: PlatformSecretsService = Depends(get_platform_secrets_service),
+    payload: dict = Depends(get_current_token),
 ) -> PlatformSecretResponse:
     row = await service.update(
         key_name=key_name,
@@ -109,6 +114,7 @@ async def update_secret(
 async def delete_secret(
     key_name: str,
     service: PlatformSecretsService = Depends(get_platform_secrets_service),
+    payload: dict = Depends(get_current_token),
 ) -> None:
     deleted = await service.delete(key_name)
     if not deleted:

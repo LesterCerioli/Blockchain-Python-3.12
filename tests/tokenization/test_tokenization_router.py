@@ -4,12 +4,17 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock
 
+from app.services.auth.api.dependencies import get_current_token
 from app.services.tokenization.api.routers.tokenization_router import router
 from app.services.tokenization.application.template_catalog_service import TemplateCatalogService
 from app.services.tokenization.infrastructure.repositories.in_memory_template_repository import InMemoryTemplateRepository
 
 TEST_EMAIL = "test@example.com"
 TEST_USER_ID = "test-user-123"
+
+
+async def _mock_token():
+    return {"sub": "test", "iss": "auth_service", "type": "m2m"}
 
 
 def _make_mock_users_client(user_id: str = TEST_USER_ID):
@@ -28,6 +33,7 @@ def client() -> TestClient:
         template_repository=repo,
         users_client=_make_mock_users_client(),
     )
+    app.dependency_overrides[get_current_token] = _mock_token
     app.include_router(router)
     return TestClient(app)
 

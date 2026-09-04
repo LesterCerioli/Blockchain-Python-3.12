@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.services.auth.api.dependencies import get_current_token
 from ..dependencies import get_health_service, get_network_service
 from ..schemas.health import HealthResponse, NodeHealthSchema
 from ..schemas.network import NetworkResponse
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/v1/btc", tags=["bitcoin"])
 )
 async def get_health(
     health_service: IHealthMonitor = Depends(get_health_service),
+    payload: dict = Depends(get_current_token),
 ) -> HealthResponse:
     node_healths = await health_service.check_health()
     current_block = await health_service.get_current_block_height()
@@ -43,6 +45,7 @@ async def get_health(
 )
 async def get_network(
     network_service: INetworkService = Depends(get_network_service),
+    payload: dict = Depends(get_current_token),
 ) -> NetworkResponse:
     try:
         info = await network_service.get_network_info()

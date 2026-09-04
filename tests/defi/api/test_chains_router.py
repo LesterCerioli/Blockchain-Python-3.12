@@ -3,6 +3,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.services.auth.api.dependencies import get_current_token
 from app.services.defi.api.dependencies import get_chain_config_service
 from app.services.defi.api.routers.chains_router import chains_router
 from app.services.defi.application.chain_config_service import ChainConfigService
@@ -13,11 +14,16 @@ TESTNET_IDS = [11155111, 80001]
 ALL_CHAIN_IDS = MAINNET_IDS + TESTNET_IDS
 
 
+async def _mock_token():
+    return {"sub": "test", "iss": "auth_service", "type": "m2m"}
+
+
 def _make_client() -> TestClient:
     app = FastAPI()
     settings = DeFiSettings()
     service = ChainConfigService(settings)
     app.dependency_overrides[get_chain_config_service] = lambda: service
+    app.dependency_overrides[get_current_token] = _mock_token
     app.include_router(chains_router)
     return TestClient(app)
 

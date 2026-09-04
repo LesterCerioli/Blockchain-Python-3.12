@@ -135,7 +135,7 @@ class TokenServiceResponse(BaseModel):
 
 
 @app.get("/")
-async def root():
+async def root(payload: dict = Depends(get_current_token)):
     return {"message": "Smart Contract Generator API"}
 
 

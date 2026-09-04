@@ -1,3 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
-portfolio_router = APIRouter(prefix="/portfolio", tags=["DeFi – Portfolio"])
+from app.services.auth.api.dependencies import get_current_token
+
+portfolio_router = APIRouter(
+    prefix="/portfolio",
+    tags=["DeFi – Portfolio"],
+    dependencies=[Depends(get_current_token)],
+)

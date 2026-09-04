@@ -29,7 +29,9 @@ def _make_template(name, industry):
 def _app_with_mock():
     app = FastAPI()
     app.include_router(router)
-    app.dependency_overrides[get_current_token] = lambda: {"sub": "test"}
+    async def _mock_token():
+        return {"sub": "test"}
+    app.dependency_overrides[get_current_token] = _mock_token
     return app
 
 
