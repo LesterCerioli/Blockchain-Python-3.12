@@ -84,7 +84,7 @@ async def lifespan(app: FastAPI):
         ohlcv_repository=ohlcv_repo,
     )
     app.state.defi_ohlcv_repository = ohlcv_repo
-    # Serviços DeFi centralizados aqui — dependencies apenas consomem via Depends(app.state).
+    
     from app.services.defi.application.chain_config_service import ChainConfigService
     from app.services.defi.application.index_service import IndexService
     from app.services.defi.infrastructure.config.settings import DeFiSettings
@@ -118,7 +118,7 @@ async def lifespan(app: FastAPI):
     settings = TokenizationSettings()
     llm_history_repo = DynamoDBLLMHistoryRepository()
     diagnosis_repo = DynamoDBDiagnosisRepository()
-    # RecommendationChoiceService uses factory internally; inject settings to allow provider switch
+    
     app.state.choice_service = RecommendationChoiceService(
         template_repository=tokenization_repo,
         choice_repository=choice_repo,
@@ -129,7 +129,7 @@ async def lifespan(app: FastAPI):
     )
     app.state.llm_history_repository = llm_history_repo
     app.state.diagnosis_repository = diagnosis_repo
-    # AI-powered diagnosis: provider swappable via settings.llm_provider (groq/grok)
+    
     try:
         diag_llm_adapter = get_diagnosis_adapter(settings)
     except Exception:
@@ -139,14 +139,13 @@ async def lifespan(app: FastAPI):
         diagnosis_repository=diagnosis_repo,
         settings=settings,
     )
-    # Journey usa o mesmo diagnosis_service (LLM-enabled) + catálogo em memória com seed.
-    # Construção centralizada aqui — routers apenas consomem via Depends(app.state).
+    
     journey_repo = InMemoryTemplateRepository(load_seed=True)
     app.state.recommendation_service = RecommendationService(journey_repo)
     app.state.journey_service = JourneyService(
         app.state.diagnosis_service, app.state.recommendation_service
     )
-    # Also expose reorder adapter for introspection
+    
     try:
         app.state.llm_reorder_adapter = get_reorder_adapter(settings)
     except Exception:
@@ -154,6 +153,7 @@ async def lifespan(app: FastAPI):
     auth_db_url = _get_auth_database_url()
     app.state.auth_service = AuthService(dsn=auth_db_url)
     await app.state.auth_service.connect()
+    await app.state.auth_service.ensure_table()
     yield
     await app.state.auth_service.close()
 
