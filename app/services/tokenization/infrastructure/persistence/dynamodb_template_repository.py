@@ -22,7 +22,7 @@ except ImportError:
     logger.debug("python-dotenv not available; relying on existing environment")
 
 ENDPOINT = os.environ.get("LOCALSTACK_ENDPOINT")
-REGION = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+REGION = os.environ.get("AWS_DEFAULT_REGION")
 ACCESS_KEY = os.environ.get("AWS_ACCESS_KEY_ID")
 SECRET_KEY = os.environ.get("AWS_SECRET_ACCESS_KEY")
 

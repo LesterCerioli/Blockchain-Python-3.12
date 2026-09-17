@@ -14,9 +14,6 @@ class EthereumSettings(BaseSettings):
         env_prefix="ETH_", env_file=".env", extra="ignore"
     )
 
-    database_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/fastchainbank"
-    )
     stale_block_threshold_seconds: int = 60
     providers: list[dict[str, Any]] = Field(
         default=[

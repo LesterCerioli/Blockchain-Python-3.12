@@ -16,7 +16,7 @@ class DynamoDBTemplateAuditLogger:
 
     def __init__(self) -> None:
         endpoint = os.environ.get("LOCALSTACK_ENDPOINT")
-        region = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+        region = os.environ.get("AWS_DEFAULT_REGION")
         access_key = os.environ.get("AWS_ACCESS_KEY_ID")
         secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
 

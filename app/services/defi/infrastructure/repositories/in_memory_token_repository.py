@@ -3,16 +3,14 @@ from uuid import UUID
 import asyncpg
 
 from app.services.defi.domain.entities.token import Token
+from app.services.defi.infrastructure.config.settings import database_url_from_env
 
 
 class InMemoryTokenRepository:
     """Token repository using PostgreSQL backend (not truly in-memory)."""
 
     def __init__(self, database_url: str | None = None) -> None:
-        self._dsn = (
-            database_url
-            or "postgresql+asyncpg://postgres:postgres@localhost:5432/blockchain_db"
-        )
+        self._dsn = database_url or database_url_from_env()
 
     async def _get_connection(self):
         return await asyncpg.connect(self._dsn)

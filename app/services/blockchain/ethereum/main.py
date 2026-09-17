@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -16,7 +17,10 @@ from .infrastructure.providers.provider_factory import ProviderFactory
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = EthereumSettings()
-    db = Database(settings.database_url)
+    db = Database(
+        f"postgresql+asyncpg://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+        f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
+    )
     providers = ProviderFactory.create_from_config(settings.providers)
     multi_provider = MultiProvider(providers)
     chain_adapter = EthChainAdapter(multi_provider)
