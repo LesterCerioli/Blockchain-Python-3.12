@@ -6,10 +6,9 @@ class BitcoinSettings(BaseSettings):
     
     model_config = SettingsConfigDict(env_prefix="BTC_", env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/fastchainbank"
     rpc_url: str = "http://localhost:18443"
-    rpc_user: str = "bitcoin"
-    rpc_password: SecretStr = SecretStr("bitcoin")
+    rpc_user: str
+    rpc_password: SecretStr
     rpc_wallet: str = ""
     request_timeout: float = 10.0
     circuit_breaker_failure_threshold: int = 5

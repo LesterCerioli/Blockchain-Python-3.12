@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -28,7 +29,10 @@ async def lifespan(app: FastAPI):
         "circuit_breaker_recovery_seconds": settings.circuit_breaker_recovery_seconds,
     }
 
-    db = Database(settings.database_url)
+    db = Database(
+        f"postgresql+asyncpg://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
+        f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
+    )
     providers = NodeFactory.create_from_config([node_config])
     multi_provider = MultiProvider(providers)
     node_adapter = BtcNodeAdapter(multi_provider)

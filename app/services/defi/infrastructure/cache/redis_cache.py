@@ -5,7 +5,7 @@ from typing import Any, Optional
 import redis
 from redis.asyncio import Redis
 
-REDIS_URL = os.getenv("CACHE_URL", "redis://localhost:6379/1")
+REDIS_URL = os.getenv("CACHE_URL")
 
 __all__ = ["get", "set"]
 

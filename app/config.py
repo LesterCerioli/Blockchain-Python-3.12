@@ -6,12 +6,11 @@ load_dotenv()
 
 
 class Config:
-    DB_HOST = os.getenv("POSTGRES_HOST")
-    DB_PORT = os.getenv("POSTGRES_PORT")
-    DB_USER = os.getenv("POSTGRES_USER")
-    DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-    DB_NAME = os.getenv("POSTGRES_DB")
-    DB_TIMEZONE = os.getenv("DB_TIMEZONE", "UTC")
+    DB_HOST = os.getenv("DB_HOST")
+    DB_PORT = os.getenv("DB_PORT")
+    DB_USER = os.getenv("DB_USER")
+    DB_PASSWORD = os.getenv("DB_PASSWORD")
+    DB_NAME = os.getenv("DB_NAME")
 
     @property
     def DATABASE_URL(self):
