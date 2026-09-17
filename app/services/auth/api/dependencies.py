@@ -47,10 +47,7 @@ async def get_current_token(
             detail=f"Invalid token: {exc}",
         )
 
-    # Single-use enforcement: token must exist in DB and is revoked after first use.
-    # When there is no AuthService (unit tests that call the dependency directly
-    # or routers mounted without lifespan), fall back to signature-only validation
-    # to keep backward compatibility.
+    
     auth_service = None
     if request is not None:
         try:
@@ -80,7 +77,7 @@ async def get_current_token(
             detail=f"Invalid token: {exc}",
         )
 
-    # Consume the token so it cannot be reused in another request.
+    
     try:
         revoked = await auth_service.revoke_token(token)
     except Exception as exc:
