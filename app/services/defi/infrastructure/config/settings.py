@@ -1,5 +1,19 @@
+import os
+
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+load_dotenv()
+
+
+def database_url_from_env() -> str:
+    host = os.getenv("DB_HOST")
+    port = os.getenv("DB_PORT")
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
+    name = os.getenv("DB_NAME")
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
 
 
 class ChainConfig(BaseModel):
@@ -15,9 +29,6 @@ class DeFiSettings(BaseSettings):
         env_prefix="DEFI_", env_file=".env", extra="ignore"
     )
 
-    database_url: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/cryptobank"
-    )
     cache_url: str = "redis://localhost:6379/1"
 
     chains: dict[int, ChainConfig] = Field(default_factory=dict)

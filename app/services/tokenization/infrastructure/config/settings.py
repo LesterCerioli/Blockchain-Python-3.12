@@ -8,9 +8,6 @@ class TokenizationSettings(BaseSettings):
     )
 
     
-    database_url: SecretStr | None = None
-    dynamodb_endpoint: str = "http://localhost:4566"
-    dynamodb_region: str = "us-east-1"
     audit_log_enabled: bool = True
     groq_api_key: SecretStr | None = None
     groq_api_url: str = "https://api.groq.com/openai/v1/chat/completions"
@@ -26,7 +23,7 @@ class TokenizationSettings(BaseSettings):
     grok_enabled: bool = True
 
     @field_validator(
-        "database_url", "groq_api_key", "grok_api_key",
+        "groq_api_key", "grok_api_key",
         mode="before",
     )
     @classmethod

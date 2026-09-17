@@ -56,7 +56,7 @@ class RecommendationChoiceService:
         self._users_client = boto3.client(
             "dynamodb",
             endpoint_url=os.environ.get("LOCALSTACK_ENDPOINT"),
-            region_name=os.environ.get("AWS_DEFAULT_REGION", "us-east-1"),
+            region_name=os.environ.get("AWS_DEFAULT_REGION"),
             aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
             aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
         )

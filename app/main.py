@@ -2,6 +2,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, status
 from pydantic import BaseModel
 
@@ -41,31 +42,17 @@ from app.token_services import (
     prepare_contract_interaction_data,
 )
 
-
-def _get_database_url() -> str:
-    """Read database URL from environment variables without exposing values."""
-    dsn = os.getenv("DEFI_DATABASE_URL")
-    if dsn:
-        return dsn
-    host = os.getenv("DB_HOST", "localhost")
-    port = os.getenv("DB_PORT", "5432")
-    user = os.getenv("DB_USER", "postgres")
-    password = os.getenv("DB_PASSWORD", "postgres")
-    name = os.getenv("DB_NAME", "blockchain_db")
-    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
+load_dotenv()
 
 
-def _get_auth_database_url() -> str:
-    """Read auth database URL from environment variables."""
-    dsn = os.getenv("AUTH_DATABASE_URL")
-    if dsn:
-        return dsn
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    user = os.getenv("POSTGRES_USER", "postgres")
-    password = os.getenv("POSTGRES_PASSWORD", "postgres")
-    name = os.getenv("POSTGRES_DB", "fastchainbank")
-    return f"postgresql://{user}:{password}@{host}:{port}/{name}"
+def _get_database_url(scheme: str = "postgresql+asyncpg") -> str:
+    """Build the Postgres DSN from the variables defined in .env."""
+    host = os.getenv("DB_HOST")
+    port = os.getenv("DB_PORT")
+    user = os.getenv("DB_USER")
+    password = os.getenv("DB_PASSWORD")
+    name = os.getenv("DB_NAME")
+    return f"{scheme}://{user}:{password}@{host}:{port}/{name}"
 
 
 @asynccontextmanager
@@ -150,7 +137,7 @@ async def lifespan(app: FastAPI):
         app.state.llm_reorder_adapter = get_reorder_adapter(settings)
     except Exception:
         app.state.llm_reorder_adapter = None
-    auth_db_url = _get_auth_database_url()
+    auth_db_url = _get_database_url("postgresql")
     app.state.auth_service = AuthService(dsn=auth_db_url)
     await app.state.auth_service.connect()
     await app.state.auth_service.ensure_table()

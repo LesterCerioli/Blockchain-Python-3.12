@@ -1,4 +1,3 @@
-import os
 from decimal import Decimal
 
 import asyncpg
@@ -15,6 +14,7 @@ from ..domain.entities.index import (
     TokenRanking,
 )
 from ..domain.exceptions import DeFiError, IndexNotFoundError
+from ..infrastructure.config.settings import database_url_from_env
 
 VALID_METRICS = ("market_cap", "volume_24h", "price_change_24h")
 
@@ -31,8 +31,6 @@ CHAIN_ALIASES: dict[str, int] = {
     "sepolia": 11155411,
     "mainnet": 1,
 }
-
-DEFAULT_DSN = "postgresql+asyncpg://postgres:postgres@localhost:5432/blockchain_db"
 
 INDEX_CATALOG: list[MarketIndex] = [
     MarketIndex(
@@ -56,7 +54,7 @@ class IndexService:
         database_url: str | None = None,
         dynamodb: DynamoDBClient | None = None,
     ) -> None:
-        self._dsn = database_url or os.environ.get("DEFI_DATABASE_URL") or DEFAULT_DSN
+        self._dsn = database_url or database_url_from_env()
         self._ddb = dynamodb or DynamoDBClient()
 
     async def list_indices(self) -> list[MarketIndex]:
