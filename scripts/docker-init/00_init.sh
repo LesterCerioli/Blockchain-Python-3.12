@@ -26,6 +26,10 @@ echo "[init] Applying Bitcoin migrations → $ETH_DB"
 psql -v ON_ERROR_STOP=1 --username "$PGUSER" --dbname "$ETH_DB" \
     -f /migrations/bitcoin/001_create_btc_nodes.sql
 
+echo "[init] Applying Auth migrations → $ETH_DB"
+psql -v ON_ERROR_STOP=1 --username "$PGUSER" --dbname "$ETH_DB" \
+    -f /migrations/auth/001_create_auth_tokens.sql
+
 echo "[init] Applying Tokenization migrations → $DEFI_DB"
 psql -v ON_ERROR_STOP=1 --username "$PGUSER" --dbname "$DEFI_DB" \
     -f /migrations/tokenization/001_create_templates.sql
