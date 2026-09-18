@@ -26,6 +26,7 @@ from ...domain.value_objects.slippage import Slippage
 from ..dependencies import get_index_service, get_quote_service
 from ..schemas.ohlcv import OHLCVCandle, OHLCVResponse
 from ..schemas.quote import QuoteRequest, QuoteResponse
+from .wallet_router import wallet_router
 
 
 class IndexCode(BaseModel):
@@ -33,6 +34,7 @@ class IndexCode(BaseModel):
 
 
 router = APIRouter(prefix="/v1/defi", tags=["defi"])
+router.include_router(wallet_router)
 
 
 @router.post(

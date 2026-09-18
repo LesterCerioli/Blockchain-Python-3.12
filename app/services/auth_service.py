@@ -20,13 +20,18 @@ class AuthService:
     def __init__(self, dsn: str) -> None:
         self._dsn = dsn
         self._pool: Optional[asyncpg.Pool] = None
-        self._client_id = os.getenv("CLIENT_ID")
-        self._client_secret = os.getenv("CLIENT_SECRET")
+        self._client_id = os.getenv("CLIENT_ID") or os.getenv("CLIENT_ID_1")
+        self._client_secret = os.getenv("CLIENT_SECRET") or os.getenv("SECRET_1")
         self._private_key = os.getenv("PRIVATE_KEY_VALUE")
         self._public_key = os.getenv("PUBLIC_KEY_VALUE")
 
     async def connect(self) -> None:
-        self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=5)
+        self._pool = await asyncpg.create_pool(
+            self._dsn,
+            min_size=1,
+            max_size=5,
+            statement_cache_size=0,
+        )
 
     async def close(self) -> None:
         if self._pool:

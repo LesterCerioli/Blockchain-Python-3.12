@@ -1,10 +1,47 @@
-from fastapi import HTTPException, Request, status
+from functools import lru_cache
+
+from fastapi import Header, HTTPException, Request, status
 
 from ..application.chain_config_service import ChainConfigService
 from ..application.index_service import IndexService
 from ..application.quote_service import QuoteService
+from ..domain.entities.wallet_session import WalletSession
 from ..domain.interfaces.ohlcv_repository import IOHLCVRepository
+from ..domain.interfaces.wallet_connector import IWalletConnector
+from ..infrastructure.config.settings import DeFiSettings
 from ..infrastructure.persistence.platform_secrets_service import PlatformSecretsService
+
+
+@lru_cache(maxsize=1)
+def get_defi_settings() -> DeFiSettings:
+    return DeFiSettings()
+
+
+def get_market_provider(request: Request):
+    return request.app.state.defi_market_provider
+
+
+def get_wallet_service(request: Request) -> IWalletConnector:
+    return request.app.state.defi_wallet_connector
+
+
+async def get_current_wallet_session(
+    request: Request,
+    x_session_id: str | None = Header(default=None),  # noqa: B008
+) -> WalletSession:
+    if not x_session_id or not x_session_id.strip():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing session id. Send header X-Session-Id.",
+        )
+    connector = get_wallet_service(request)
+    session = await connector.get_session(x_session_id.strip())
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session not found or expired",
+        )
+    return session
 
 
 def get_quote_service(request: Request) -> QuoteService:
@@ -16,7 +53,7 @@ def get_market_quote_service(request: Request) -> QuoteService:
 
 
 def get_platform_secrets_service(request: Request) -> PlatformSecretsService:
-    """Resolve via lifespan (app.state). Nenhum client externo é criado aqui."""
+    
     try:
         svc = request.app.state.platform_secrets_service
     except AttributeError:
@@ -30,7 +67,7 @@ def get_platform_secrets_service(request: Request) -> PlatformSecretsService:
 
 
 def get_chain_config_service(request: Request) -> ChainConfigService:
-    """Resolve via lifespan (app.state). Nenhum serviço é construído aqui."""
+    
     try:
         svc = request.app.state.chain_config_service
     except AttributeError:
@@ -48,7 +85,7 @@ def get_ohlcv_repository(request: Request) -> IOHLCVRepository:
 
 
 def get_index_service(request: Request) -> IndexService:
-    """Resolve via lifespan (app.state). Nenhum client externo é criado aqui."""
+    
     try:
         svc = request.app.state.index_service
     except AttributeError:
