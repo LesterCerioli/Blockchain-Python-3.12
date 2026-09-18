@@ -79,15 +79,15 @@ class IndexService:
         page: int,
         page_size: int,
     ) -> PaginatedResponse[TokenRanking]:
-        # Validate metric
+        
         if metric not in VALID_METRICS:
             raise DeFiError(f"Invalid metric. Valid: {', '.join(VALID_METRICS)}")
 
-        # Resolve chain_id from chain name if provided
+        
         chain_id = self._resolve_chain_id(chain)
 
         dsn = self._dsn.replace("+asyncpg", "")
-        async with await asyncpg.connect(dsn) as conn:
+        async with await asyncpg.connect(dsn, statement_cache_size=0) as conn:
             if chain_id is not None:
                 rows = await conn.fetch(
                     "SELECT address, symbol, name, decimals, chain_id "
@@ -155,7 +155,7 @@ class IndexService:
         chain_id: int | None = None,
     ) -> list[ProtocolRanking]:
         dsn = self._dsn.replace("+asyncpg", "")
-        async with await asyncpg.connect(dsn) as conn:
+        async with await asyncpg.connect(dsn, statement_cache_size=0) as conn:
             if chain_id is not None:
                 rows = await conn.fetch(
                     "SELECT protocol, chain_id, SUM(liquidity) AS tvl "

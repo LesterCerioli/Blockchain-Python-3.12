@@ -83,6 +83,10 @@ async def lifespan(app: FastAPI):
     app.state.platform_secrets_service = PlatformSecretsService(DeFiDatabase(_get_database_url()))
     app.state.chain_config_service = ChainConfigService(DeFiSettings())
     app.state.index_service = IndexService()
+    from app.services.defi.application.wallet_session_service import WalletSessionService
+    from app.services.defi.infrastructure.cache.redis_cache import get_redis
+
+    app.state.defi_wallet_connector = WalletSessionService(get_redis())
     tokenization_repo = DynamoDBTemplateRepository()
     tokenization_audit = DynamoDBTemplateAuditLogger()
     app.state.tokenization_catalog_service = TemplateCatalogService(
@@ -146,6 +150,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="FastChainBank", lifespan=lifespan)
+from app.services.defi.api.exception_handlers import register_defi_exception_handlers
+
+register_defi_exception_handlers(app)
 app.include_router(defi_router)
 app.include_router(aux_router)
 app.include_router(tokenization_router)
