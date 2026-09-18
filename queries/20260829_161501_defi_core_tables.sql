@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS tokens (
 
 
 CREATE UNIQUE INDEX IF NOT EXISTS tokens_symbol_chain_idx ON tokens(symbol, chain_id);
+CREATE UNIQUE INDEX IF NOT EXISTS tokens_address_chain_idx ON tokens(address, chain_id);
 
 
 CREATE TABLE IF NOT EXISTS pools (
@@ -51,11 +52,11 @@ CREATE TABLE IF NOT EXISTS ohlcv_candles (
     symbol VARCHAR(32) NOT NULL,
     interval VARCHAR(16) NOT NULL,
     open_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    open DECIMAL(78, 80) NOT NULL,
-    high DECIMAL(78, 80) NOT NULL,
-    low DECIMAL(78, 80) NOT NULL,
-    close DECIMAL(78, 80) NOT NULL,
-    volume DECIMAL(78, 80) NOT NULL,
+    open DECIMAL(38, 18) NOT NULL,
+    high DECIMAL(38, 18) NOT NULL,
+    low DECIMAL(38, 18) NOT NULL,
+    close DECIMAL(38, 18) NOT NULL,
+    volume DECIMAL(38, 18) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

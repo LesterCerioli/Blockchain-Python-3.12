@@ -13,7 +13,7 @@ class InMemoryTokenRepository:
         self._dsn = database_url or database_url_from_env()
 
     async def _get_connection(self):
-        return await asyncpg.connect(self._dsn)
+        return await asyncpg.connect(self._dsn, statement_cache_size=0)
 
     async def get_by_address(self, address: str, chain_id: int) -> Token | None:
         async with await self._get_connection() as conn:
