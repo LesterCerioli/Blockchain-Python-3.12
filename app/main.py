@@ -80,13 +80,25 @@ async def lifespan(app: FastAPI):
         PlatformSecretsService,
     )
 
+    defi_settings = DeFiSettings()
     app.state.platform_secrets_service = PlatformSecretsService(DeFiDatabase(_get_database_url()))
-    app.state.chain_config_service = ChainConfigService(DeFiSettings())
+    app.state.chain_config_service = ChainConfigService(defi_settings)
     app.state.index_service = IndexService()
     from app.services.defi.application.wallet_session_service import WalletSessionService
+    from app.services.defi.api.middleware.sanctions_guard import SanctionsGuard
     from app.services.defi.infrastructure.cache.redis_cache import get_redis
+    from app.services.defi.infrastructure.compliance.in_memory_sanctions_screener import (
+        InMemorySanctionsScreener,
+    )
 
-    app.state.defi_wallet_connector = WalletSessionService(get_redis())
+    app.state.defi_wallet_connector = WalletSessionService(
+        get_redis(),
+        supported_chain_ids=defi_settings.supported_chain_ids,
+    )
+    app.state.defi_sanctions_guard = SanctionsGuard(
+        InMemorySanctionsScreener(defi_settings.sanctioned_addresses),
+        enabled=defi_settings.compliance_screening_enabled,
+    )
     tokenization_repo = DynamoDBTemplateRepository()
     tokenization_audit = DynamoDBTemplateAuditLogger()
     app.state.tokenization_catalog_service = TemplateCatalogService(

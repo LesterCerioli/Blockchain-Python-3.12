@@ -13,6 +13,7 @@ from app.services.defi.domain.entities.wallet_session import WalletSession
 from app.services.defi.domain.exceptions import (
     InvalidAddressError,
     NonCustodialViolationError,
+    UnsupportedChainError,
 )
 
 VAL = "0x" + "A" * 2 + "a" * 38
@@ -170,6 +171,40 @@ class TestENSResolution:
         svc = _svc(resolve_ens=resolve, redis=redis)
         with pytest.raises(NonCustodialViolationError):
             await svc.connect("bob.eth", 1)
+        assert await redis.keys("defi:session:*") == []
+
+
+# ---------------------------------------------------------------------------
+# connect — supported chain validation (FEATURE 3.1.2 / DoD)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+class TestSupportedChainValidation:
+
+    async def test_unsupported_chain_raises_unsupported_chain_error(self):
+        with pytest.raises(UnsupportedChainError):
+            await _svc().connect(VAL, 999999)
+
+    async def test_supported_chains_are_accepted(self):
+        for chain_id in (1, 137, 42161):
+            session = await _svc().connect(VAL, chain_id)
+            assert session.chain_id == chain_id
+
+    async def test_custom_supported_chain_set_is_respected(self):
+        svc = WalletSessionService(
+            InMemoryRedis(),  # type: ignore[arg-type]
+            supported_chain_ids=[1, 5],
+        )
+        session = await svc.connect(VAL, 5)
+        assert session.chain_id == 5
+        with pytest.raises(UnsupportedChainError):
+            await svc.connect(VAL, 137)
+
+    async def test_nothing_is_persisted_on_unsupported_chain(self):
+        redis = InMemoryRedis()
+        svc = _svc(redis=redis)
+        with pytest.raises(UnsupportedChainError):
+            await svc.connect(VAL, 999999)
         assert await redis.keys("defi:session:*") == []
 
 

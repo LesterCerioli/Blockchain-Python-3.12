@@ -52,6 +52,22 @@ class WalletConnectionError(DeFiError):
     pass
 
 
+class UnsupportedChainError(DeFiError):
+    def __init__(self, chain_id: int, supported_chain_ids: tuple[int, ...]) -> None:
+        super().__init__(
+            f"Unsupported chain_id {chain_id}. "
+            f"Supported chains: {sorted(supported_chain_ids)}"
+        )
+        self.chain_id = chain_id
+        self.supported_chain_ids = sorted(supported_chain_ids)
+
+    def to_dict(self) -> dict[str, object]:
+        d = super().to_dict()
+        d["chain_id"] = self.chain_id
+        d["supported_chain_ids"] = self.supported_chain_ids
+        return d
+
+
 class InvalidAddressError(WalletConnectionError):
     def __init__(self, address: str) -> None:
         super().__init__(f"Invalid wallet address: {address}")
