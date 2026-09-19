@@ -25,17 +25,16 @@ from ..domain.exceptions import (
     SlippageExceededError,
     TokenNotFoundError,
     ToUNotAcceptedError,
+    UnsupportedChainError,
     WalletConnectionError,
 )
 
-# Maps concrete exception types to (HTTP status code, machine-readable error_code).
-# Order matters: more specific types must come before their bases when the
-# lookup iterates with isinstance checks, which is enforced by dict insertion order.
+
 _EXCEPTION_STATUS_MAP: dict[type[DeFiError], tuple[int, str]] = {
     # 400 — Bad request (caller error, correctable)
     InvalidAddressError: (400, "INVALID_ADDRESS"),
     # 403 — Forbidden (compliance / policy)
-    SanctionedAddressError: (403, "SANCTIONED_ADDRESS"),
+    SanctionedAddressError: (403, "sanctioned_address"),
     ToUNotAcceptedError: (403, "TOU_NOT_ACCEPTED"),
     NonCustodialViolationError: (403, "NON_CUSTODIAL_VIOLATION"),
     # 404 — Resource not found
@@ -48,6 +47,7 @@ _EXCEPTION_STATUS_MAP: dict[type[DeFiError], tuple[int, str]] = {
     SlippageExceededError: (422, "SLIPPAGE_EXCEEDED"),
     InsufficientLiquidityError: (422, "INSUFFICIENT_LIQUIDITY"),
     ProtocolNotSupportedError: (422, "PROTOCOL_NOT_SUPPORTED"),
+    UnsupportedChainError: (422, "UNSUPPORTED_CHAIN"),
     # 429 — Rate limited by upstream provider
     RateLimitError: (429, "RATE_LIMIT_EXCEEDED"),
     # 503 — Upstream unavailable / indexer lag
@@ -61,7 +61,7 @@ _EXCEPTION_STATUS_MAP: dict[type[DeFiError], tuple[int, str]] = {
 
 
 def _safe_details(exc: DeFiError) -> dict[str, Any] | None:
-    """Extract domain-specific fields, stripping top-level keys already in ErrorResponse."""
+    
     raw = exc.to_dict()
     raw.pop("error", None)
     raw.pop("message", None)
@@ -96,5 +96,5 @@ async def defi_error_handler(request: Request, exc: DeFiError) -> JSONResponse:
 
 
 def register_defi_exception_handlers(app: Any) -> None:
-    """Register all DeFi domain exception handlers on the FastAPI application."""
+    
     app.add_exception_handler(DeFiError, defi_error_handler)

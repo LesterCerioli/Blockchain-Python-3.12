@@ -41,6 +41,7 @@ class DeFiSettings(BaseSettings):
     market_data_refresh_interval_seconds: int = 60
     indexer_start_block: int = 0
     compliance_screening_enabled: bool = False
+    sanctioned_addresses: list[str] = Field(default_factory=list)
     audit_log_enabled: bool = True
 
     default_slippage_bps: int = Field(default=50, ge=0, le=10_000)

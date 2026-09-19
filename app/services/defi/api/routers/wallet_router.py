@@ -1,10 +1,21 @@
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, status
 
 from app.services.auth.api.dependencies import get_current_token
 
+from ...application.wallet_session_service import SESSION_TTL_SECONDS
 from ...domain.entities.wallet_session import WalletSession
-from ..dependencies import get_current_wallet_session, get_wallet_service
-from ..schemas.wallet import WalletConnectRequest, WalletDisconnectResponse
+from ..dependencies import (
+    enforce_sanctions_guard,
+    get_current_wallet_session,
+    get_wallet_service,
+)
+from ..schemas.wallet import (
+    WalletConnectRequest,
+    WalletConnectResponse,
+    WalletDisconnectResponse,
+)
 
 wallet_router = APIRouter(
     prefix="/wallet",
@@ -15,17 +26,25 @@ wallet_router = APIRouter(
 
 @wallet_router.post(
     "/connect",
-    response_model=WalletSession,
-    status_code=status.HTTP_201_CREATED,
+    response_model=WalletConnectResponse,
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(enforce_sanctions_guard)],
     summary="Connect a client wallet (public address only, never a private key)",
 )
 async def connect_wallet(
     body: WalletConnectRequest,
     wallet_service=Depends(get_wallet_service),  # noqa: B008
-) -> WalletSession:
-    return await wallet_service.connect(
+) -> WalletConnectResponse:
+    session = await wallet_service.connect(
         wallet_address=body.wallet_address,
         chain_id=body.chain_id,
+    )
+    ttl = getattr(wallet_service, "session_ttl_seconds", SESSION_TTL_SECONDS)
+    return WalletConnectResponse(
+        session_token=session.session_id,
+        wallet_address=session.wallet_address,
+        chain_id=session.chain_id,
+        expires_at=datetime.now(tz=timezone.utc) + timedelta(seconds=ttl),
     )
 
 
