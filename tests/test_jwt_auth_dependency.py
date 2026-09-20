@@ -56,12 +56,33 @@ class TestGetCurrentToken:
         assert payload["iss"] == "auth_service"
         assert payload["type"] == "m2m"
 
-    def test_missing_header_raises_401(self):
+    def test_missing_query_raises_401(self):
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(get_current_token(None, None))
         assert exc_info.value.status_code == 401
 
-    def test_malformed_header_raises_401(self):
+    def test_valid_raw_token_via_query_param(self):
+        payload = asyncio.run(get_current_token(None, _make_token()))
+        assert payload["sub"] == "client123"
+        assert payload["iss"] == "auth_service"
+        assert payload["type"] == "m2m"
+
+    def test_bearer_prefixed_token_via_query_param(self):
+        payload = asyncio.run(get_current_token(None, _bearer(_make_token())))
+        assert payload["sub"] == "client123"
+
+    def test_whitespace_only_query_param_raises_401(self):
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(get_current_token(None, "   "))
+        assert exc_info.value.status_code == 401
+
+    def test_invalid_token_via_query_param_raises_401(self):
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(get_current_token(None, "invalid.token.value"))
+        assert exc_info.value.status_code == 401
+        assert "Invalid token" in exc_info.value.detail
+
+    def test_malformed_value_raises_401(self):
         with pytest.raises(HTTPException) as exc_info:
             asyncio.run(get_current_token(None, "Token abc123"))
         assert exc_info.value.status_code == 401

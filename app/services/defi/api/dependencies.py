@@ -9,7 +9,11 @@ from ..domain.entities.wallet_session import WalletSession
 from ..domain.interfaces.ohlcv_repository import IOHLCVRepository
 from ..domain.interfaces.wallet_connector import IWalletConnector
 from ..infrastructure.config.settings import DeFiSettings
+from ..infrastructure.compliance.in_memory_sanctions_screener import (
+    InMemorySanctionsScreener,
+)
 from ..infrastructure.persistence.platform_secrets_service import PlatformSecretsService
+from .middleware.sanctions_guard import SanctionsGuard
 
 
 @lru_cache(maxsize=1)
@@ -23,6 +27,18 @@ def get_market_provider(request: Request):
 
 def get_wallet_service(request: Request) -> IWalletConnector:
     return request.app.state.defi_wallet_connector
+
+
+def get_sanctions_guard(request: Request) -> SanctionsGuard:
+    guard = getattr(request.app.state, "defi_sanctions_guard", None)
+    if guard is None:
+        guard = SanctionsGuard(InMemorySanctionsScreener(), enabled=False)
+    return guard
+
+
+async def enforce_sanctions_guard(request: Request) -> None:
+    """Route dependency: screen the public address before session creation."""
+    await get_sanctions_guard(request)(request)
 
 
 async def get_current_wallet_session(

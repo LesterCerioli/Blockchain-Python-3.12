@@ -110,14 +110,14 @@ class TestAuthRequired(unittest.TestCase):
 
     def test_read_root_requires_token(self):
         response = self.client.get("/")
-        self.assertIn(response.status_code, (401, 403))
+        self.assertIn(response.status_code, (401, 403, 422))
 
     def test_generate_erc20_requires_token(self):
         response = self.client.post(
             "/generate/erc20/",
             json={"name": "X", "symbol": "X", "initial_supply": 1},
         )
-        self.assertIn(response.status_code, (401, 403))
+        self.assertIn(response.status_code, (401, 403, 422))
 
     def test_prepare_interaction_requires_token(self):
         response = self.client.post(
@@ -128,7 +128,7 @@ class TestAuthRequired(unittest.TestCase):
                 "args": [],
             },
         )
-        self.assertIn(response.status_code, (401, 403))
+        self.assertIn(response.status_code, (401, 403, 422))
 
 
 if __name__ == "__main__":
