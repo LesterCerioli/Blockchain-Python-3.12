@@ -4,30 +4,44 @@ import os
 
 import jwt
 from dotenv import load_dotenv
-from fastapi import Header, HTTPException, Request, status
+from fastapi import HTTPException, Query, Request, status
 
 load_dotenv()
 
 _public_key = os.getenv("PUBLIC_KEY_VALUE")
 
 
+def _extract_token(authorization: str | None) -> str | None:
+    """Extract the raw JWT from the REQUIRED ``authorization`` query parameter.
+
+    Accepts either ``Bearer <token>`` or the raw token returned by
+    ``POST /auth/token`` (``access_token``). The ``authorization`` header is
+    intentionally not read: the query parameter is the single authentication
+    channel for every protected endpoint.
+    """
+    if not isinstance(authorization, str):
+        return None
+    value = authorization.strip()
+    if value.lower().startswith("bearer "):
+        value = value[7:]
+    return value.strip() or None
+
+
 async def get_current_token(
     request: Request,
-    authorization: str | None = Header(
-        default=None,
-        description="JWT de uso único gerado em POST /auth/token. Formato: Bearer <token>. Gere um novo token a cada request.",
+    authorization: str | None = Query(
+        ...,
+        description="Token JWT gerado em POST /auth/token (campo access_token), enviado como query parameter. Campo obrigatório para todos os endpoints, exceto POST /auth/token e /auth/token/validate.",
     ),
 ) -> dict:
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated. Informe o header Authorization: Bearer <token gerado em POST /auth/token>.",
-        )
-    token = authorization[7:].strip()
+    token = _extract_token(authorization)
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated. Token vazio no header Authorization.",
+            detail=(
+                "Not authenticated. Informe o query parameter authorization=<token> "
+                "com o token gerado em POST /auth/token."
+            ),
         )
     try:
         payload = jwt.decode(

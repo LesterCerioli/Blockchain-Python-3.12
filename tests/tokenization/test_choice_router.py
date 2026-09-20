@@ -62,6 +62,15 @@ def _app_with_service(svc):
     return app
 
 
+def _app_with_service_real_auth(svc):
+    """Keep the real ``get_current_token`` (so the REQUIRED authorization
+    query parameter is enforced) while mocking only the service."""
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_choice_service] = lambda: svc
+    return app
+
+
 def _app_with_mock():
     svc, _, _ = _service_with_mocks()
     return _app_with_service(svc)
@@ -71,7 +80,7 @@ class TestBusinessTypesEndpoint:
     def test_requires_auth(self):
         app = FastAPI(); app.include_router(router)
         client = TestClient(app)
-        assert client.get("/tokenization/business-types").status_code in (401, 403)
+        assert client.get("/tokenization/business-types").status_code in (401, 403, 422)
 
     def test_returns_all_types(self):
         client = TestClient(_app_with_mock())
@@ -130,9 +139,9 @@ class TestByBusinessTypeIsolation:
 
 class TestReorderEndpoint:
     def test_requires_auth(self):
-        app = FastAPI(); app.include_router(router)
-        client = TestClient(app)
-        assert client.post("/tokenization/recommendation/order", json={"email": "u1@example.com", "business_type": "retail", "description": "valid description 1234567890"}).status_code in (401, 403)
+        svc, _, _ = _service_with_mocks()
+        client = TestClient(_app_with_service_real_auth(svc))
+        assert client.post("/tokenization/recommendation/order", json={"email": "u1@example.com", "business_type": "retail", "description": "valid description 1234567890"}).status_code in (401, 403, 422)
 
     def test_short_description_rejected(self):
         client = TestClient(_app_with_mock())
@@ -171,9 +180,9 @@ class TestReorderEndpoint:
 
 class TestChoicesEndpoint:
     def test_requires_auth_create(self):
-        app = FastAPI(); app.include_router(router)
-        client = TestClient(app)
-        assert client.post("/tokenization/choices", json={"email": "u1@example.com", "business_type": "retail", "description_tokenization": "valid description 1234567890", "tokenization_template": "Loyalty Token"}).status_code in (401, 403)
+        svc, _, _ = _service_with_mocks()
+        client = TestClient(_app_with_service_real_auth(svc))
+        assert client.post("/tokenization/choices", json={"email": "u1@example.com", "business_type": "retail", "description_tokenization": "valid description 1234567890", "tokenization_template": "Loyalty Token"}).status_code in (401, 403, 422)
 
     def test_create_and_isolation(self):
         svc, _, mock_choice = _service_with_mocks(resolve="wallet-usera")
