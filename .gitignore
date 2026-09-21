@@ -99,3 +99,10 @@ __pypackages__/
 
 # Cython debug symbols
 cython_debug/
+./pem
+AGENTS.md
+github-kanban.md
+private.pem
+public.pem
+.opencode/opencode.db-shm
+.opencode/opencode.db-wal
