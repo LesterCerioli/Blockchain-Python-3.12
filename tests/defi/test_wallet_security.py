@@ -54,8 +54,7 @@ def _run(coro):
 
 
 class InMemoryRedis:
-    """Minimal async Redis double, exposes the backing store for assertions."""
-
+    
     def __init__(self) -> None:
         self.store: dict[str, tuple[str, int]] = {}
 
