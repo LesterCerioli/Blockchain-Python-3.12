@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.services.defi.domain.exceptions import InvalidAddressError
 from app.services.defi.domain.value_objects import (
     ChainId,
     CryptoAmount,
@@ -77,6 +78,10 @@ class TestTokenAddress:
     def test_rejects_non_hex_characters(self):
         with pytest.raises(ValueError):
             TokenAddress("0x" + "z" * 40)
+
+    def test_invalid_address_raises_invalid_address_error(self):
+        with pytest.raises(InvalidAddressError):
+            TokenAddress("0xinvalid")
 
 
 # ---------------------------------------------------------------------------

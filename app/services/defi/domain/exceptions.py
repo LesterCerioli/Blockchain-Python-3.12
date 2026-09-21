@@ -68,7 +68,7 @@ class UnsupportedChainError(DeFiError):
         return d
 
 
-class InvalidAddressError(WalletConnectionError):
+class InvalidAddressError(WalletConnectionError, ValueError):
     def __init__(self, address: str) -> None:
         super().__init__(f"Invalid wallet address: {address}")
         self.address = address
